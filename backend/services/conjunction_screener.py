@@ -74,7 +74,7 @@ def screen_asset(
     step_seconds: float = 60.0,
     progress_callback: Optional[Callable[[float, int, int], None]] = None,
     asset_radius_m: float = 1.0,
-) -> list[ConjunctionCandidate]:
+) -> ScreeningResult:
     """Screen a protected asset against the catalog.
 
     Uses a three-pass approach:
@@ -97,7 +97,7 @@ def screen_asset(
 
     if not catalog_filtered:
         logger.warning("Empty catalog — nothing to screen against")
-        return []
+        return ScreeningResult(conjunctions=[])
 
     # --- Pass 1: Coarse filter ---
     candidates = _coarse_filter(asset_tle, catalog_filtered)
@@ -112,7 +112,7 @@ def screen_asset(
         progress_callback(0.05, len(candidates), 0)
 
     if not candidates:
-        return []
+        return ScreeningResult(conjunctions=[])
 
     # --- Pass 2: Vectorized two-stage distance scan ---
     #

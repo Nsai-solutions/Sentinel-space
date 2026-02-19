@@ -12,6 +12,24 @@ const THREAT_DOT_COLORS = {
   LOW: 'var(--threat-low)',
 };
 
+const PRESET_SATELLITES = [
+  { norad_id: 25544, name: 'ISS (ZARYA)', orbit: 'LEO' },
+  { norad_id: 20580, name: 'HUBBLE SPACE TELESCOPE', orbit: 'LEO' },
+  { norad_id: 40697, name: 'SENTINEL-2A', orbit: 'SSO' },
+  { norad_id: 43013, name: 'STARLINK-24', orbit: 'LEO' },
+  { norad_id: 48274, name: 'STARLINK-2305', orbit: 'LEO' },
+  { norad_id: 28654, name: 'NOAA 18', orbit: 'SSO' },
+  { norad_id: 33591, name: 'NOAA 19', orbit: 'SSO' },
+  { norad_id: 29155, name: 'GPS BIIR-13 (PRN 02)', orbit: 'MEO' },
+  { norad_id: 41866, name: 'GOES 16', orbit: 'GEO' },
+  { norad_id: 36516, name: 'CRYOSAT 2', orbit: 'LEO' },
+  { norad_id: 44714, name: 'STARLINK-1007', orbit: 'LEO' },
+  { norad_id: 27424, name: 'ENVISAT', orbit: 'SSO' },
+  { norad_id: 37849, name: 'TIANGONG 2', orbit: 'LEO' },
+  { norad_id: 39084, name: 'LANDSAT 8', orbit: 'SSO' },
+  { norad_id: 43226, name: 'COSMOS 2251 DEB', orbit: 'LEO' },
+];
+
 export default function LeftPanel() {
   const assets = useAssetStore((s) => s.assets);
   const selectedAssetId = useAssetStore((s) => s.selectedAssetId);
@@ -26,34 +44,48 @@ export default function LeftPanel() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addInput, setAddInput] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+  const [loadingPreset, setLoadingPreset] = useState(null);
 
   const filteredAssets = assets.filter(
     (a) => a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
            String(a.norad_id).includes(searchQuery)
   );
 
+  // Filter presets: hide already-added ones, filter by search input
+  const existingNoradIds = new Set(assets.map((a) => a.norad_id));
+  const filteredPresets = PRESET_SATELLITES.filter((p) => {
+    if (existingNoradIds.has(p.norad_id)) return false;
+    if (!addInput.trim()) return true;
+    const q = addInput.toLowerCase();
+    return p.name.toLowerCase().includes(q) || String(p.norad_id).includes(q);
+  });
+
   const handleSelectAsset = (id) => {
     selectAsset(id);
     setRightPanelMode('asset');
   };
 
-  const handleAddAsset = async () => {
-    if (!addInput.trim()) return;
+  const handleAddAsset = async (noradId) => {
+    const id = noradId || addInput.trim();
+    if (!id) return;
+    const loadingKey = noradId || 'custom';
     setAddLoading(true);
+    setLoadingPreset(loadingKey);
     try {
-      const isNumber = /^\d+$/.test(addInput.trim());
+      const isNumber = /^\d+$/.test(String(id));
       await addAssetAction(
         isNumber
-          ? { norad_id: parseInt(addInput.trim()) }
-          : { name: addInput.trim() }
+          ? { norad_id: parseInt(id) }
+          : { name: id }
       );
       setAddInput('');
-      setAddDialogOpen(false);
+      if (!noradId) setAddDialogOpen(false);
       loadAssets();
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to add asset');
     }
     setAddLoading(false);
+    setLoadingPreset(null);
   };
 
   const getHighestThreat = (asset) => {
@@ -69,7 +101,7 @@ export default function LeftPanel() {
     <aside className="left-panel">
       <div className="left-panel-header">
         <h2 className="panel-title">ASSETS</h2>
-        <button className="btn-add" onClick={() => setAddDialogOpen(true)} title="Add satellite">
+        <button className="btn-add" onClick={() => setAddDialogOpen(!addDialogOpen)} title="Add satellite">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -90,18 +122,42 @@ export default function LeftPanel() {
         <div className="add-asset-dialog">
           <input
             type="text"
-            placeholder="NORAD ID or name..."
+            placeholder="NORAD ID or satellite name..."
             value={addInput}
             onChange={(e) => setAddInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddAsset()}
             autoFocus
           />
-          <div className="add-asset-actions">
-            <button className="btn-primary btn-sm" onClick={handleAddAsset} disabled={addLoading}>
-              {addLoading ? 'Adding...' : 'Add'}
-            </button>
-            <button className="btn-ghost btn-sm" onClick={() => setAddDialogOpen(false)}>Cancel</button>
+          {addInput.trim() && (
+            <div className="add-asset-actions">
+              <button className="btn-primary btn-sm" onClick={() => handleAddAsset()} disabled={addLoading}>
+                {loadingPreset === 'custom' ? 'Adding...' : 'Add Custom'}
+              </button>
+            </div>
+          )}
+          <div className="preset-list">
+            {filteredPresets.map((sat) => (
+              <button
+                key={sat.norad_id}
+                className="preset-item"
+                onClick={() => handleAddAsset(sat.norad_id)}
+                disabled={addLoading}
+              >
+                <span className="preset-name">{sat.name}</span>
+                <span className="preset-meta">
+                  <span className="font-data">{sat.norad_id}</span>
+                  <span className="preset-orbit">{sat.orbit}</span>
+                </span>
+                {loadingPreset === sat.norad_id && <span className="preset-loading">Adding...</span>}
+              </button>
+            ))}
+            {filteredPresets.length === 0 && addInput.trim() && (
+              <div className="preset-empty">No presets match — press Enter to add by ID/name</div>
+            )}
           </div>
+          <button className="btn-ghost btn-sm add-cancel" onClick={() => { setAddDialogOpen(false); setAddInput(''); }}>
+            Close
+          </button>
         </div>
       )}
 
@@ -130,8 +186,13 @@ export default function LeftPanel() {
             </div>
           );
         })}
-        {filteredAssets.length === 0 && (
-          <div className="empty-state">No assets found</div>
+        {filteredAssets.length === 0 && !addDialogOpen && (
+          <div className="empty-state">
+            No assets found
+            <button className="btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setAddDialogOpen(true)}>
+              Add satellites
+            </button>
+          </div>
         )}
       </div>
 
