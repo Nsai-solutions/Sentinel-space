@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import TopBar from './components/layout/TopBar';
 import LeftPanel from './components/layout/LeftPanel';
 import CenterViewport from './components/layout/CenterViewport';
@@ -32,15 +33,17 @@ function App() {
   }, []);
 
   return (
-    <div className="app-layout">
-      <TopBar />
-      <div className="app-main">
-        <LeftPanel />
-        <CenterViewport />
-        <RightPanel />
+    <ErrorBoundary>
+      <div className="app-layout">
+        <TopBar />
+        <div className="app-main">
+          <LeftPanel />
+          <CenterViewport />
+          <RightPanel />
+        </div>
+        <BottomPanel expanded={bottomPanelExpanded} />
       </div>
-      <BottomPanel expanded={bottomPanelExpanded} />
-    </div>
+    </ErrorBoundary>
   );
 }
 
