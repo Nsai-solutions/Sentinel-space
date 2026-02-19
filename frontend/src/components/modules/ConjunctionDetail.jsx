@@ -12,8 +12,16 @@ export default function ConjunctionDetail({ data }) {
   if (!data) return null;
 
   const formatPc = (pc) => {
-    if (!pc || pc === 0) return '0';
+    if (pc == null) return '—';
+    if (pc === 0) return '< 1e-15';
+    if (pc < 1e-12) return `${pc.toExponential(1)}`;
     return pc.toExponential(2);
+  };
+
+  const formatDist = (val) => {
+    if (val == null) return '—';
+    if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(2)} km`;
+    return `${val.toFixed(1)} m`;
   };
 
   const handleComputeManeuvers = async () => {
@@ -27,6 +35,14 @@ export default function ConjunctionDetail({ data }) {
     setComputing(false);
   };
 
+  // Handle both flat (list endpoint) and nested (detail endpoint) structures
+  const primaryName = data.primary?.name || data.primary_asset_name || 'Unknown';
+  const primaryNorad = data.primary?.norad_id || data.primary_norad_id || 0;
+  const secondaryName = data.secondary?.name || data.secondary_name || `NORAD ${data.secondary?.norad_id || data.secondary_norad_id}`;
+  const secondaryNorad = data.secondary?.norad_id || data.secondary_norad_id || 0;
+  const secondaryType = data.secondary?.object_type || data.secondary_object_type;
+  const isManeuverable = data.primary?.maneuverable;
+
   return (
     <div className="conjunction-detail">
       <div className="conjunction-detail-header">
@@ -38,16 +54,16 @@ export default function ConjunctionDetail({ data }) {
       <div className="object-comparison">
         <div className="object-card">
           <div className="object-card-title">PROTECTED</div>
-          <div className="object-card-name">{data.primary?.name}</div>
-          <div className="object-card-meta font-data">NORAD {data.primary?.norad_id}</div>
-          {data.primary?.maneuverable && <span className="maneuver-badge">Maneuverable</span>}
+          <div className="object-card-name">{primaryName}</div>
+          <div className="object-card-meta font-data">NORAD {primaryNorad}</div>
+          {isManeuverable && <span className="maneuver-badge">Maneuverable</span>}
         </div>
         <div className="vs-divider">VS</div>
         <div className="object-card threat">
           <div className="object-card-title">THREAT</div>
-          <div className="object-card-name">{data.secondary?.name || `NORAD ${data.secondary?.norad_id}`}</div>
-          <div className="object-card-meta font-data">NORAD {data.secondary?.norad_id}</div>
-          {data.secondary?.object_type && <span className="type-badge">{data.secondary.object_type}</span>}
+          <div className="object-card-name">{secondaryName}</div>
+          <div className="object-card-meta font-data">NORAD {secondaryNorad}</div>
+          {secondaryType && <span className="type-badge">{secondaryType}</span>}
         </div>
       </div>
 
@@ -72,26 +88,34 @@ export default function ConjunctionDetail({ data }) {
       <div className="readout-grid">
         <DataReadout
           label="Total"
-          value={data.miss_distance_m?.toFixed(1) || '—'}
-          unit="m"
+          value={formatDist(data.miss_distance_m)}
           threat={data.threat_level}
         />
         <DataReadout label="Relative Velocity" value={data.relative_velocity_kms?.toFixed(3) || '—'} unit="km/s" />
-        <DataReadout label="Radial" value={data.radial_m?.toFixed(1) || '—'} unit="m" />
-        <DataReadout label="In-Track" value={data.in_track_m?.toFixed(1) || '—'} unit="m" />
-        <DataReadout label="Cross-Track" value={data.cross_track_m?.toFixed(1) || '—'} unit="m" />
+        <DataReadout label="Radial" value={data.radial_m != null ? `${data.radial_m.toFixed(1)}` : '—'} unit="m" />
+        <DataReadout label="In-Track" value={data.in_track_m != null ? `${data.in_track_m.toFixed(1)}` : '—'} unit="m" />
+        <DataReadout label="Cross-Track" value={data.cross_track_m != null ? `${data.cross_track_m.toFixed(1)}` : '—'} unit="m" />
         <DataReadout label="Probability" value={formatPc(data.collision_probability)} threat={data.threat_level} />
       </div>
+
+      {/* Combined hard body radius */}
+      {data.combined_hard_body_radius_m && (
+        <div className="readout-grid" style={{ marginTop: 4 }}>
+          <DataReadout label="Combined HBR" value={data.combined_hard_body_radius_m.toFixed(2)} unit="m" />
+        </div>
+      )}
 
       {/* Uncertainty */}
       {data.uncertainty && (
         <>
-          <div className="section-title">UNCERTAINTY (1σ)</div>
+          <div className="section-title">UNCERTAINTY (1 sigma)</div>
           <div className="readout-grid">
             <DataReadout label="Prim. Radial" value={data.uncertainty.primary_sigma_radial_m?.toFixed(0) || '—'} unit="m" />
             <DataReadout label="Prim. In-Track" value={data.uncertainty.primary_sigma_in_track_m?.toFixed(0) || '—'} unit="m" />
+            <DataReadout label="Prim. Cross-Trk" value={data.uncertainty.primary_sigma_cross_track_m?.toFixed(0) || '—'} unit="m" />
             <DataReadout label="Sec. Radial" value={data.uncertainty.secondary_sigma_radial_m?.toFixed(0) || '—'} unit="m" />
             <DataReadout label="Sec. In-Track" value={data.uncertainty.secondary_sigma_in_track_m?.toFixed(0) || '—'} unit="m" />
+            <DataReadout label="Sec. Cross-Trk" value={data.uncertainty.secondary_sigma_cross_track_m?.toFixed(0) || '—'} unit="m" />
           </div>
         </>
       )}
@@ -105,7 +129,7 @@ export default function ConjunctionDetail({ data }) {
               <tr>
                 <th>Opt</th>
                 <th>Direction</th>
-                <th>Δv (m/s)</th>
+                <th>dv (m/s)</th>
                 <th>New Miss (m)</th>
                 <th>New Pc</th>
               </tr>

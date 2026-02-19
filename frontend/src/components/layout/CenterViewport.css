@@ -5,17 +5,7 @@
   position: relative;
   overflow: hidden;
   background: var(--bg-void);
-}
-
-.center-viewport > div {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.center-viewport canvas {
-  width: 100% !important;
-  height: 100% !important;
+  /* Isolate stacking context so canvas cannot escape */
+  isolation: isolate;
+  z-index: 0;
 }

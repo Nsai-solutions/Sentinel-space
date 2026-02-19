@@ -177,9 +177,9 @@ def _alfano_2d_pc(
     # Eigendecompose the 2D covariance to get principal axes
     eigenvalues, eigenvectors = np.linalg.eigh(cov_2d)
 
-    # Ensure positive eigenvalues
-    sigma_x_sq = max(eigenvalues[0], 1.0)
-    sigma_y_sq = max(eigenvalues[1], 1.0)
+    # Ensure positive eigenvalues (minimum 100 m² = 10m sigma)
+    sigma_x_sq = max(eigenvalues[0], 100.0)
+    sigma_y_sq = max(eigenvalues[1], 100.0)
 
     # Rotate miss distance into principal axes
     miss_rotated = eigenvectors.T @ miss_2d

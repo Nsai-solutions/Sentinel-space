@@ -16,15 +16,15 @@ function classifyPc(pc) {
 }
 
 function formatPc(pc) {
-  if (!pc || pc === 0) return '0';
-  const exp = Math.floor(Math.log10(pc));
+  if (pc == null || pc === 0 || !isFinite(pc)) return '< 1e-15';
+  const exp = Math.floor(Math.log10(Math.abs(pc)));
   const mantissa = pc / Math.pow(10, exp);
   return `${mantissa.toFixed(1)} × 10`;
 }
 
 function formatPcExp(pc) {
-  if (!pc || pc === 0) return '';
-  const exp = Math.floor(Math.log10(pc));
+  if (pc == null || pc === 0 || !isFinite(pc)) return '';
+  const exp = Math.floor(Math.log10(Math.abs(pc)));
   return exp.toString();
 }
 

@@ -39,7 +39,7 @@ export default function CenterViewport() {
       <Canvas
         camera={{ position: [0, 0, 4], fov: 45 }}
         gl={{ antialias: true, alpha: false }}
-        style={{ background: '#060A13' }}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: '#060A13' }}
       >
         <Scene />
       </Canvas>

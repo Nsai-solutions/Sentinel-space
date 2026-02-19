@@ -19,6 +19,7 @@ from models.schemas import ScreeningRequest, ScreeningStatusResponse
 from services.conjunction_screener import screen_asset
 from services.alert_engine import check_and_generate_alerts
 from services.tle_catalog import catalog_service
+from services.uncertainty_model import default_covariance_ric, estimate_hard_body_radius
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -165,8 +166,22 @@ def _run_screening_job(
         results = screening_result.conjunctions
 
         # Store results in database
+        import math
         new_events = []
         for r in results:
+            # Compute uncertainty sigmas for storage
+            pri_epoch = r.primary_tle.epoch_datetime
+            if pri_epoch and hasattr(pri_epoch, 'tzinfo') and pri_epoch.tzinfo:
+                pri_epoch = pri_epoch.replace(tzinfo=None)
+            sec_epoch = r.secondary_tle.epoch_datetime
+            if sec_epoch and hasattr(sec_epoch, 'tzinfo') and sec_epoch.tzinfo:
+                sec_epoch = sec_epoch.replace(tzinfo=None)
+            pri_age_h = max(0.0, (r.tca - pri_epoch).total_seconds() / 3600.0) if pri_epoch else 48.0
+            sec_age_h = max(0.0, (r.tca - sec_epoch).total_seconds() / 3600.0) if sec_epoch else 72.0
+            cov1 = default_covariance_ric(pri_age_h, "payload")
+            cov2 = default_covariance_ric(sec_age_h, "unknown")
+            sec_radius = estimate_hard_body_radius(object_type="unknown")
+
             event = ConjunctionEvent(
                 primary_asset_id=asset_id,
                 secondary_norad_id=r.secondary_tle.catalog_number,
@@ -181,6 +196,13 @@ def _run_screening_job(
                 threat_level=ThreatLevel(r.threat_level),
                 screening_job_id=job_id,
                 status=EventStatus.ACTIVE,
+                primary_sigma_radial_m=math.sqrt(cov1[0, 0]) * 1000.0,
+                primary_sigma_in_track_m=math.sqrt(cov1[1, 1]) * 1000.0,
+                primary_sigma_cross_track_m=math.sqrt(cov1[2, 2]) * 1000.0,
+                secondary_sigma_radial_m=math.sqrt(cov2[0, 0]) * 1000.0,
+                secondary_sigma_in_track_m=math.sqrt(cov2[1, 1]) * 1000.0,
+                secondary_sigma_cross_track_m=math.sqrt(cov2[2, 2]) * 1000.0,
+                combined_hard_body_radius_m=(asset.hard_body_radius_m or 1.0) + sec_radius,
             )
             db.add(event)
             new_events.append(event)

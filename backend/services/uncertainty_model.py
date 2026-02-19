@@ -29,25 +29,30 @@ def default_covariance_ric(
     """
     age = max(0.0, tle_age_hours)
 
-    # Base uncertainties (meters) at epoch
+    # TLE-based uncertainty growth model.
+    # In-track uncertainty dominates and grows rapidly with TLE age because
+    # mean motion errors accumulate along-track. Typical SSN TLE accuracy:
+    #   - Fresh TLE (0h): ~200m radial, ~500m in-track, ~200m cross-track
+    #   - 24h old TLE:    ~500m radial, ~5km in-track, ~500m cross-track
+    #   - 72h old TLE:    ~1km radial,  ~15km in-track, ~1km cross-track
+    # These values produce operationally realistic Pc in the 1e-7 to 1e-3
+    # range for conjunction events at typical screening thresholds (5-25km).
     if object_type == "payload":
-        # Payloads generally have better tracking
-        sigma_r = 30.0 + 3.0 * age
-        sigma_i = 60.0 + 30.0 * age
-        sigma_c = 30.0 + 3.0 * age
+        sigma_r = 200.0 + 12.0 * age
+        sigma_i = 500.0 + 200.0 * age
+        sigma_c = 200.0 + 12.0 * age
     elif object_type == "debris":
-        sigma_r = 80.0 + 8.0 * age
-        sigma_i = 150.0 + 80.0 * age
-        sigma_c = 80.0 + 8.0 * age
+        sigma_r = 500.0 + 30.0 * age
+        sigma_i = 1500.0 + 500.0 * age
+        sigma_c = 500.0 + 30.0 * age
     elif object_type == "rocket_body":
-        sigma_r = 60.0 + 6.0 * age
-        sigma_i = 120.0 + 60.0 * age
-        sigma_c = 60.0 + 6.0 * age
+        sigma_r = 400.0 + 25.0 * age
+        sigma_i = 1000.0 + 400.0 * age
+        sigma_c = 400.0 + 25.0 * age
     else:
-        # Default / unknown
-        sigma_r = 50.0 + 5.0 * age
-        sigma_i = 100.0 + 50.0 * age
-        sigma_c = 50.0 + 5.0 * age
+        sigma_r = 300.0 + 20.0 * age
+        sigma_i = 800.0 + 300.0 * age
+        sigma_c = 300.0 + 20.0 * age
 
     # Convert to km and square for covariance
     sigma_r_km = sigma_r / 1000.0
@@ -115,14 +120,14 @@ def estimate_hard_body_radius(rcs: float | None = None, object_type: str = "unkn
         else:
             return 3.0
 
-    # Default by object type
+    # Default by object type (meters)
     defaults = {
-        "payload": 2.0,
-        "debris": 0.2,
-        "rocket_body": 2.5,
-        "unknown": 0.5,
+        "payload": 3.0,
+        "debris": 0.3,
+        "rocket_body": 3.5,
+        "unknown": 1.0,
     }
-    return defaults.get(object_type, 0.5)
+    return defaults.get(object_type, 1.0)
 
 
 def gps_covariance() -> np.ndarray:

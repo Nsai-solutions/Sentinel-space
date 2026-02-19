@@ -17,7 +17,8 @@ export default function ConjunctionTable() {
   };
 
   const formatPc = (pc) => {
-    if (!pc || pc === 0) return '—';
+    if (pc == null) return '—';
+    if (pc === 0) return '< 1e-15';
     return pc.toExponential(2);
   };
 

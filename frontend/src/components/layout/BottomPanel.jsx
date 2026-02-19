@@ -1,6 +1,8 @@
 import useUIStore from '../../stores/uiStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import ConjunctionTable from '../modules/ConjunctionTable';
+import ConjunctionTimeline from '../modules/ConjunctionTimeline';
+import ConjunctionAnalytics from '../modules/ConjunctionAnalytics';
 import './BottomPanel.css';
 
 const TABS = [
@@ -70,16 +72,8 @@ export default function BottomPanel({ expanded }) {
       {expanded && (
         <div className="bottom-panel-content">
           {activeTab === 'table' && <ConjunctionTable />}
-          {activeTab === 'timeline' && (
-            <div className="empty-state" style={{ padding: 32 }}>
-              Timeline visualization — D3.js conjunction event timeline will render here
-            </div>
-          )}
-          {activeTab === 'analytics' && (
-            <div className="empty-state" style={{ padding: 32 }}>
-              Analytics — Conjunction statistics and trends will render here
-            </div>
-          )}
+          {activeTab === 'timeline' && <ConjunctionTimeline />}
+          {activeTab === 'analytics' && <ConjunctionAnalytics />}
         </div>
       )}
     </div>
