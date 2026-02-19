@@ -58,7 +58,8 @@ class TLECatalogService:
     def initialize(self):
         """Load initial catalog from cache or sample TLEs.
 
-        Tries in order: disk cache > CelesTrak fetch > sample TLEs.
+        Tries in order: disk cache > sample TLEs > CelesTrak fetch.
+        Also loads user-added assets from the database.
         """
         try:
             # Try loading cached catalog
@@ -72,19 +73,21 @@ class TLECatalogService:
                             self._catalog[tle.catalog_number] = tle
                     logger.info("Loaded %d TLEs from cache", len(self._catalog))
 
-            # If cache was empty/missing, try fetching from CelesTrak
-            # Skip on Vercel cold start to avoid timeout — use sample TLEs instead
-            if self.catalog_size < 50 and not os.environ.get("VERCEL"):
-                logger.info("Catalog too small (%d), fetching from CelesTrak...", self.catalog_size)
-                self._fetch_initial_catalog()
-
-            # Final fallback: sample TLEs
-            if self.catalog_size == 0:
+            # Always load sample TLEs (now includes 100+ real satellites)
+            if self.catalog_size < 50:
                 tles = self._tle_manager.load_sample_tles()
                 with self._lock:
                     for tle in tles:
                         self._catalog[tle.catalog_number] = tle
-                logger.info("Loaded %d sample TLEs as fallback catalog", len(self._catalog))
+                logger.info("Loaded %d sample TLEs into catalog", len(self._catalog))
+
+            # Load user-added assets from database into catalog
+            self._load_assets_from_db()
+
+            # If catalog is still small, try fetching from CelesTrak
+            if self.catalog_size < 50:
+                logger.info("Catalog too small (%d), fetching from CelesTrak...", self.catalog_size)
+                self._fetch_initial_catalog()
 
             self._initialized = True
             logger.info("Catalog initialized with %d objects", self.catalog_size)
@@ -99,6 +102,36 @@ class TLECatalogService:
             except Exception:
                 pass
             self._initialized = True
+
+    def _load_assets_from_db(self):
+        """Load TLEs from user-added assets in the database."""
+        try:
+            from database.database import SessionLocal
+            from database.models import Asset
+
+            db = SessionLocal()
+            try:
+                assets = db.query(Asset).filter(
+                    Asset.tle_line1.isnot(None),
+                    Asset.tle_line2.isnot(None),
+                ).all()
+                count = 0
+                for asset in assets:
+                    try:
+                        tles = parse_tle_text(
+                            f"{asset.name}\n{asset.tle_line1}\n{asset.tle_line2}"
+                        )
+                        if tles:
+                            self.add_tle(tles[0])
+                            count += 1
+                    except Exception:
+                        pass
+                if count:
+                    logger.info("Loaded %d TLEs from user assets in database", count)
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug("Could not load assets from database: %s", e)
 
     def _fetch_initial_catalog(self):
         """Fetch key TLE groups from CelesTrak for initial catalog."""

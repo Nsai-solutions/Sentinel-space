@@ -173,6 +173,7 @@ def propagate_batch(
     for nid in norad_ids:
         tle = _resolve_tle(nid)
         if not tle:
+            logger.warning("No TLE found for NORAD %d, skipping", nid)
             continue
 
         try:
@@ -188,7 +189,8 @@ def propagate_batch(
                 "position_eci": r.position_eci.tolist(),
                 "in_shadow": r.in_shadow,
             })
-        except Exception:
+        except Exception as e:
+            logger.warning("Propagation failed for NORAD %d: %s", nid, e)
             continue
 
     return {"datetime_utc": dt.isoformat(), "satellites": results}

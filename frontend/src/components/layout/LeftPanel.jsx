@@ -14,20 +14,20 @@ const THREAT_DOT_COLORS = {
 
 const PRESET_SATELLITES = [
   { norad_id: 25544, name: 'ISS (ZARYA)', orbit: 'LEO' },
-  { norad_id: 20580, name: 'HUBBLE SPACE TELESCOPE', orbit: 'LEO' },
-  { norad_id: 40697, name: 'SENTINEL-2A', orbit: 'SSO' },
-  { norad_id: 43013, name: 'STARLINK-24', orbit: 'LEO' },
-  { norad_id: 48274, name: 'STARLINK-2305', orbit: 'LEO' },
-  { norad_id: 28654, name: 'NOAA 18', orbit: 'SSO' },
+  { norad_id: 20580, name: 'HST (HUBBLE)', orbit: 'LEO' },
+  { norad_id: 48274, name: 'CSS (TIANHE)', orbit: 'LEO' },
+  { norad_id: 43013, name: 'NOAA 20 (JPSS-1)', orbit: 'SSO' },
   { norad_id: 33591, name: 'NOAA 19', orbit: 'SSO' },
-  { norad_id: 29155, name: 'GPS BIIR-13 (PRN 02)', orbit: 'MEO' },
+  { norad_id: 54234, name: 'NOAA 21 (JPSS-2)', orbit: 'SSO' },
+  { norad_id: 37849, name: 'SUOMI NPP', orbit: 'SSO' },
+  { norad_id: 25994, name: 'TERRA', orbit: 'SSO' },
+  { norad_id: 36508, name: 'CRYOSAT 2', orbit: 'LEO' },
+  { norad_id: 39452, name: 'SWARM A', orbit: 'LEO' },
+  { norad_id: 38771, name: 'METOP-B', orbit: 'SSO' },
   { norad_id: 41866, name: 'GOES 16', orbit: 'GEO' },
-  { norad_id: 36516, name: 'CRYOSAT 2', orbit: 'LEO' },
-  { norad_id: 44714, name: 'STARLINK-1007', orbit: 'LEO' },
-  { norad_id: 27424, name: 'ENVISAT', orbit: 'SSO' },
-  { norad_id: 37849, name: 'TIANGONG 2', orbit: 'LEO' },
-  { norad_id: 39084, name: 'LANDSAT 8', orbit: 'SSO' },
-  { norad_id: 43226, name: 'COSMOS 2251 DEB', orbit: 'LEO' },
+  { norad_id: 51850, name: 'GOES 18', orbit: 'GEO' },
+  { norad_id: 24876, name: 'GPS BIIR-2 (PRN 13)', orbit: 'MEO' },
+  { norad_id: 43873, name: 'GPS BIII-1 (PRN 04)', orbit: 'MEO' },
 ];
 
 export default function LeftPanel() {
