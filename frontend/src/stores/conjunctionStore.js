@@ -23,7 +23,7 @@ const useConjunctionStore = create((set, get) => ({
     set({ loading: true });
     try {
       const res = await fetchConjunctions(params);
-      set({ conjunctions: res.data, loading: false });
+      set({ conjunctions: Array.isArray(res.data) ? res.data : [], loading: false });
     } catch (err) {
       set({ loading: false });
     }
@@ -32,7 +32,8 @@ const useConjunctionStore = create((set, get) => ({
   loadSummary: async () => {
     try {
       const res = await getConjunctionSummary();
-      set({ summary: res.data });
+      const data = res.data;
+      set({ summary: (data && typeof data === 'object' && !Array.isArray(data)) ? data : { total: 0, by_level: {} } });
     } catch (err) {
       console.error('Failed to load summary:', err);
     }

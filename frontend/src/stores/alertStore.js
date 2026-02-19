@@ -10,7 +10,7 @@ const useAlertStore = create((set) => ({
     set({ loading: true });
     try {
       const res = await fetchAlerts(params);
-      set({ alerts: res.data, loading: false });
+      set({ alerts: Array.isArray(res.data) ? res.data : [], loading: false });
     } catch (err) {
       set({ loading: false });
     }
@@ -19,7 +19,7 @@ const useAlertStore = create((set) => ({
   loadUnreadCount: async () => {
     try {
       const res = await getUnreadCount();
-      set({ unreadCount: res.data.unread });
+      set({ unreadCount: typeof res.data?.unread === 'number' ? res.data.unread : 0 });
     } catch (err) {
       console.error('Failed to load unread count:', err);
     }

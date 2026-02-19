@@ -12,7 +12,7 @@ const useAssetStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const res = await fetchAssets();
-      set({ assets: res.data, loading: false });
+      set({ assets: Array.isArray(res.data) ? res.data : [], loading: false });
     } catch (err) {
       set({ error: err.message, loading: false });
     }
