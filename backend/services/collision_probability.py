@@ -13,7 +13,6 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.special import iv as bessel_iv  # modified Bessel function
 
 logger = logging.getLogger(__name__)
 
