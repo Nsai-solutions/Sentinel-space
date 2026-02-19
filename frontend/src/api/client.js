@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Use VITE_API_URL env var for deployed backend, fall back to local proxy
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });

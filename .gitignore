@@ -15,9 +15,11 @@ frontend/dist/
 
 # Data files
 backend/data/sentinelspace.db
-backend/data/tle_cache/*.tle
-backend/data/tle_cache/*.json
+backend/data/sentinelspace.db-shm
+backend/data/sentinelspace.db-wal
+backend/data/tle_cache/
 backend/data/textures/
+data/textures/
 
 # IDE
 .vscode/
@@ -35,3 +37,5 @@ Thumbs.db
 
 # Claude
 .claude/
+
+.vercel
