@@ -1,0 +1,11 @@
+.center-viewport {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: var(--bg-void);
+}
+
+.center-viewport canvas {
+  width: 100% !important;
+  height: 100% !important;
+}

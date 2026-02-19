@@ -1,0 +1,119 @@
+.bottom-panel {
+  background: var(--bg-primary);
+  border-top: 1px solid var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  transition: height 0.3s ease;
+  flex-shrink: 0;
+}
+
+.bottom-panel.expanded {
+  height: var(--bottom-panel-height);
+}
+
+.bottom-panel.collapsed {
+  height: var(--bottom-panel-collapsed);
+}
+
+.bottom-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: var(--bottom-panel-collapsed);
+  min-height: var(--bottom-panel-collapsed);
+  border-bottom: 1px solid var(--bg-surface);
+}
+
+.bottom-panel-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.bottom-tab {
+  background: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  letter-spacing: 0.3px;
+}
+.bottom-tab:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
+.bottom-tab.active {
+  color: var(--accent-primary);
+  background: rgba(68, 138, 255, 0.1);
+}
+
+.bottom-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-screen {
+  background: var(--accent-primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: var(--radius-md);
+}
+.btn-screen:hover { filter: brightness(1.1); }
+.btn-screen:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.screening-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.screening-progress-bar {
+  width: 120px;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.screening-progress-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.screening-status-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.screening-status.error .screening-status-text {
+  color: var(--threat-high);
+}
+
+.screening-status.complete .screening-status-text {
+  color: var(--threat-low);
+}
+
+.btn-toggle {
+  background: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+}
+.btn-toggle:hover { background: var(--bg-tertiary); }
+
+.bottom-panel-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}

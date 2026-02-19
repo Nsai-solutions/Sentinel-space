@@ -1,0 +1,150 @@
+.conjunction-detail {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conjunction-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conjunction-detail-id {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.object-comparison {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.object-card {
+  flex: 1;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  border-left: 3px solid var(--accent-primary);
+}
+.object-card.threat {
+  border-left-color: var(--threat-critical);
+}
+
+.object-card-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.object-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.object-card-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.vs-divider {
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 1px;
+}
+
+.maneuver-badge, .type-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+.maneuver-badge {
+  background: rgba(0, 230, 118, 0.1);
+  color: var(--threat-low);
+}
+.type-badge {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.risk-section {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.tca-section {
+  text-align: center;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.tca-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.tca-value {
+  font-size: 14px;
+  color: var(--text-data);
+}
+
+.tca-countdown {
+  font-size: 12px;
+  color: var(--threat-moderate);
+  margin-top: 2px;
+}
+
+.readout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.maneuver-table {
+  overflow-x: auto;
+}
+.maneuver-table table {
+  font-size: 12px;
+}
+.maneuver-table th {
+  font-size: 10px;
+  padding: 6px 8px;
+}
+.maneuver-table td {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 10px;
+}
+.btn-primary:hover { filter: brightness(1.1); }

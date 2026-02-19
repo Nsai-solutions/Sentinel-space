@@ -1,0 +1,32 @@
+.readout-cell {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(68, 138, 255, 0.1);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.readout-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+.readout-value {
+  font-family: var(--font-data);
+  font-size: 16px;
+  color: var(--text-data);
+}
+
+.readout-value.critical { color: var(--threat-critical); }
+.readout-value.high { color: var(--threat-high); }
+.readout-value.moderate { color: var(--threat-moderate); }
+.readout-value.low { color: var(--threat-low); }
+
+.readout-unit {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}
