@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-DB_PATH = Path(__file__).parent.parent / "data" / "sentinelspace.db"
+# On Vercel, use /tmp (ephemeral writable dir). Locally use backend/data/.
+if os.environ.get("VERCEL"):
+    DB_PATH = Path("/tmp") / "sentinelspace.db"
+else:
+    DB_PATH = Path(__file__).parent.parent / "data" / "sentinelspace.db"
 
 
 class Base(DeclarativeBase):

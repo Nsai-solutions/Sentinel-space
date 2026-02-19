@@ -112,6 +112,17 @@ class Downloader:
         dest.parent.mkdir(parents=True, exist_ok=True)
         return self._download_file(NASA_BLUE_MARBLE_URL, dest, progress, timeout)
 
+    def download(
+        self,
+        url: str,
+        dest: Path,
+        progress: Optional[ProgressCallback] = None,
+        timeout: float = 30.0,
+    ) -> DownloadResult:
+        """Download a file from URL to dest path."""
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        return self._download_file(url, dest, progress, timeout)
+
     def _download_file(
         self,
         url: str,

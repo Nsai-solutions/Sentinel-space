@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from datetime import datetime
 from typing import Optional
+
+IS_VERCEL = bool(os.environ.get("VERCEL"))
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -58,16 +61,20 @@ def run_screening(req: ScreeningRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(job)
 
-        # Launch screening in background thread
-        t = threading.Thread(
-            target=_run_screening_job,
-            args=(job.id, asset_id, req.time_window_days, req.distance_threshold_km),
-            daemon=True,
-        )
-        t.start()
-        _running_jobs[job.id] = t
-
-        jobs.append({"job_id": job.id, "asset_id": asset_id, "status": "RUNNING"})
+        if IS_VERCEL:
+            # Run synchronously in serverless (no background threads)
+            _run_screening_job(job.id, asset_id, req.time_window_days, req.distance_threshold_km)
+            jobs.append({"job_id": job.id, "asset_id": asset_id, "status": "COMPLETED"})
+        else:
+            # Launch screening in background thread
+            t = threading.Thread(
+                target=_run_screening_job,
+                args=(job.id, asset_id, req.time_window_days, req.distance_threshold_km),
+                daemon=True,
+            )
+            t.start()
+            _running_jobs[job.id] = t
+            jobs.append({"job_id": job.id, "asset_id": asset_id, "status": "RUNNING"})
 
     return {"jobs": jobs, "total": len(jobs)}
 

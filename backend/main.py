@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -49,9 +50,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
+# Add Vercel deployment URL
+_vercel_url = os.environ.get("VERCEL_URL")
+if _vercel_url:
+    _cors_origins.append(f"https://{_vercel_url}")
+# Also allow the production domain pattern
+_cors_origins.append("https://sentinel-space-six.vercel.app")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

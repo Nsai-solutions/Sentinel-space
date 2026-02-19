@@ -7,6 +7,7 @@ catalog for conjunction screening operations.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from datetime import datetime
@@ -37,7 +38,16 @@ class TLECatalogService:
     """
 
     def __init__(self):
-        self._data_dir = Path(__file__).parent.parent / "data"
+        if os.environ.get("VERCEL"):
+            self._data_dir = Path("/tmp") / "tle_data"
+            self._data_dir.mkdir(parents=True, exist_ok=True)
+            # Copy sample TLEs to writable dir
+            src = Path(__file__).parent.parent / "data" / "sample_tles.txt"
+            dst = self._data_dir / "sample_tles.txt"
+            if src.exists() and not dst.exists():
+                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            self._data_dir = Path(__file__).parent.parent / "data"
         self._downloader = Downloader(self._data_dir)
         self._tle_manager = TLEManager(self._data_dir, self._downloader)
         self._catalog: dict[int, TLEData] = {}
@@ -63,7 +73,8 @@ class TLECatalogService:
                     logger.info("Loaded %d TLEs from cache", len(self._catalog))
 
             # If cache was empty/missing, try fetching from CelesTrak
-            if self.catalog_size < 50:
+            # Skip on Vercel cold start to avoid timeout — use sample TLEs instead
+            if self.catalog_size < 50 and not os.environ.get("VERCEL"):
                 logger.info("Catalog too small (%d), fetching from CelesTrak...", self.catalog_size)
                 self._fetch_initial_catalog()
 
