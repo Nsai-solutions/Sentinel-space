@@ -38,8 +38,10 @@ def add_asset(req: AssetCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail=f"Invalid TLE: {e}")
 
     elif req.norad_id:
-        # Fetch from CelesTrak
-        tle_data = catalog_service.fetch_by_norad_id(req.norad_id)
+        # Check local catalog first, then fetch from CelesTrak
+        tle_data = catalog_service.get_tle(req.norad_id)
+        if not tle_data:
+            tle_data = catalog_service.fetch_by_norad_id(req.norad_id)
         if not tle_data:
             raise HTTPException(status_code=404, detail=f"Could not find TLE for NORAD ID {req.norad_id}")
 

@@ -226,10 +226,11 @@ class TLECatalogService:
             tle = self._tle_manager.load_from_norad_id(norad_id)
             if tle:
                 self.add_tle(tle)
-            return tle
+                return tle
         except Exception as e:
             logger.warning("Failed to fetch TLE for NORAD %d: %s", norad_id, e)
-            return self.get_tle(norad_id)
+        # Always fall back to local catalog
+        return self.get_tle(norad_id)
 
     def fetch_group(self, group_name: str) -> list[TLEData]:
         """Fetch a CelesTrak group and add to catalog."""

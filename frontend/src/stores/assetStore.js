@@ -55,6 +55,9 @@ const useAssetStore = create((set, get) => ({
         set({ selectedAssetDetail: res.data });
       } catch (err) {
         console.error('Failed to load asset detail:', err);
+        // Fallback: use basic asset data already in the store
+        const asset = get().assets.find((a) => a.id === id);
+        if (asset) set({ selectedAssetDetail: asset });
       }
 
       // Start polling every 3 seconds for live position updates

@@ -1,4 +1,5 @@
 import useUIStore from '../../stores/uiStore';
+import useAssetStore from '../../stores/assetStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import ConjunctionTable from '../modules/ConjunctionTable';
 import ConjunctionTimeline from '../modules/ConjunctionTimeline';
@@ -15,11 +16,13 @@ export default function BottomPanel({ expanded }) {
   const activeTab = useUIStore((s) => s.bottomPanelTab);
   const setTab = useUIStore((s) => s.setBottomPanelTab);
   const togglePanel = useUIStore((s) => s.toggleBottomPanel);
+  const assets = useAssetStore((s) => s.assets);
   const screening = useConjunctionStore((s) => s.screening);
   const startScreening = useConjunctionStore((s) => s.startScreening);
 
   const handleRunScreening = () => {
-    startScreening([], { timeWindowDays: 7, distanceThreshold: 25 });
+    const ids = assets.map((a) => a.id);
+    startScreening(ids, { timeWindowDays: 7, distanceThreshold: 25 });
   };
 
   const statusClass = screening.status === 'FAILED' ? 'error'
