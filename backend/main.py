@@ -96,18 +96,23 @@ app = FastAPI(
 _cors_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://sentinel-space-six.vercel.app",
 ]
 
-# Add Vercel deployment URL
+# Add Vercel deployment URL if available
 _vercel_url = os.environ.get("VERCEL_URL")
 if _vercel_url:
     _cors_origins.append(f"https://{_vercel_url}")
-# Also allow the production domain pattern
-_cors_origins.append("https://sentinel-space-six.vercel.app")
+
+# Add custom frontend URL if configured
+_frontend_url = os.environ.get("FRONTEND_URL")
+if _frontend_url:
+    _cors_origins.append(_frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"https://sentinel-space.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

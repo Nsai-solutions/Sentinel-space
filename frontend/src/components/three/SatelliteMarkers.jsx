@@ -32,8 +32,8 @@ export default function SatelliteMarkers() {
     failCountRef.current = 0;
 
     const fetchPositions = async () => {
-      // Stop polling after 5 consecutive failures
-      if (failCountRef.current >= 5) return;
+      // Stop polling after 3 consecutive failures
+      if (failCountRef.current >= 3) return;
 
       const noradIds = assets.map((a) => a.norad_id);
       let posMap = {};
@@ -45,8 +45,10 @@ export default function SatelliteMarkers() {
         for (const sat of sats) {
           posMap[sat.norad_id] = latLonAltToCartesian(sat.latitude, sat.longitude, sat.altitude_km);
         }
-      } catch {
-        // Batch failed — try individual below
+      } catch (err) {
+        if (failCountRef.current === 0) {
+          console.warn('Batch propagation failed, falling back to individual:', err.message);
+        }
       }
 
       // Fallback: fetch individually for any missing satellites

@@ -24,7 +24,7 @@ export const getCatalogStats = () => api.get('/tle/catalog/stats');
 export const refreshCatalog = () => api.post('/tle/refresh');
 
 // Screening
-export const runScreening = (data) => api.post('/screening/run', data);
+export const runScreening = (data) => api.post('/screening/run', data, { timeout: 180000 });
 export const getScreeningStatus = (jobId) => api.get(`/screening/status/${jobId}`);
 export const getScreeningResults = (jobId) => api.get(`/screening/results/${jobId}`);
 

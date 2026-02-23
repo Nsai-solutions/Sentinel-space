@@ -71,7 +71,8 @@ const useConjunctionStore = create((set, get) => ({
         time_window_days: config.timeWindowDays || 7,
         distance_threshold_km: config.distanceThreshold || 25,
       });
-      const jobId = res.data.jobs?.[0]?.job_id;
+      const firstJob = res.data.jobs?.[0];
+      const jobId = firstJob?.job_id;
       if (!jobId) {
         set({
           screening: {
@@ -83,6 +84,43 @@ const useConjunctionStore = create((set, get) => ({
         });
         return res.data;
       }
+
+      // If already completed (synchronous/Vercel mode), show results immediately
+      if (firstJob.status === 'COMPLETED') {
+        set({
+          screening: {
+            active: false, jobId, progress: 1.0,
+            status: 'COMPLETED', totalObjects: 0, candidatesFound: 0, conjunctionsFound: 0,
+            error: null,
+            statusText: 'Screening complete — loading results...',
+          },
+        });
+        // Fetch the actual job details for conjunction count
+        try {
+          const statusRes = await getScreeningStatus(jobId);
+          const d = statusRes.data;
+          set({
+            screening: {
+              active: false, jobId, progress: 1.0,
+              status: 'COMPLETED',
+              totalObjects: d.total_objects || 0,
+              candidatesFound: d.candidates_found || 0,
+              conjunctionsFound: d.conjunctions_found || 0,
+              error: d.error_message || null,
+              statusText: d.conjunctions_found > 0
+                ? `Complete: ${d.conjunctions_found} conjunction${d.conjunctions_found !== 1 ? 's' : ''} found`
+                : `Complete: 0 conjunctions found${d.error_message ? ' — ' + d.error_message : ''}`,
+            },
+          });
+        } catch {
+          // Status fetch failed, but screening did complete
+        }
+        get().loadConjunctions();
+        get().loadSummary();
+        return res.data;
+      }
+
+      // Async mode (Render): poll for progress
       set({
         screening: {
           ...get().screening,

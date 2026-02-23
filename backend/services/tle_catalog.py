@@ -74,7 +74,7 @@ class TLECatalogService:
                     logger.info("Loaded %d TLEs from cache", len(self._catalog))
 
             # Always load sample TLEs (now includes 100+ real satellites)
-            if self.catalog_size < 50:
+            if self.catalog_size < 500:
                 tles = self._tle_manager.load_sample_tles()
                 with self._lock:
                     for tle in tles:
@@ -85,7 +85,7 @@ class TLECatalogService:
             self._load_assets_from_db()
 
             # If catalog is still small, try fetching from CelesTrak
-            if self.catalog_size < 50:
+            if self.catalog_size < 500:
                 logger.info("Catalog too small (%d), fetching from CelesTrak...", self.catalog_size)
                 self._fetch_initial_catalog()
 
@@ -133,7 +133,7 @@ class TLECatalogService:
         except Exception as e:
             logger.debug("Could not load assets from database: %s", e)
 
-    def ensure_catalog_populated(self, min_objects: int = 100):
+    def ensure_catalog_populated(self, min_objects: int = 500):
         """Ensure catalog has enough objects for meaningful screening.
 
         If below min_objects, tries to fetch from CelesTrak.
