@@ -133,6 +133,23 @@ class TLECatalogService:
         except Exception as e:
             logger.debug("Could not load assets from database: %s", e)
 
+    def ensure_catalog_populated(self, min_objects: int = 100):
+        """Ensure catalog has enough objects for meaningful screening.
+
+        If below min_objects, tries to fetch from CelesTrak.
+        Returns current catalog size.
+        """
+        if self.catalog_size >= min_objects:
+            return self.catalog_size
+
+        logger.info(
+            "Catalog has only %d objects (need %d), fetching from CelesTrak...",
+            self.catalog_size, min_objects,
+        )
+        self._fetch_initial_catalog()
+        logger.info("Catalog now has %d objects after fetch", self.catalog_size)
+        return self.catalog_size
+
     def _fetch_initial_catalog(self):
         """Fetch key TLE groups from CelesTrak for initial catalog."""
         import requests

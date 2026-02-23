@@ -7,6 +7,7 @@ const useAssetStore = create((set, get) => ({
   selectedAssetDetail: null,
   loading: false,
   error: null,
+  _pollInterval: null,
 
   loadAssets: async () => {
     set({ loading: true, error: null });
@@ -41,18 +42,44 @@ const useAssetStore = create((set, get) => ({
   },
 
   selectAsset: async (id) => {
-    set({ selectedAssetId: id, selectedAssetDetail: null });
+    // Clear any existing poll
+    const prev = get()._pollInterval;
+    if (prev) clearInterval(prev);
+
+    set({ selectedAssetId: id, selectedAssetDetail: null, _pollInterval: null });
+
     if (id) {
+      // Initial fetch
       try {
         const res = await getAsset(id);
         set({ selectedAssetDetail: res.data });
       } catch (err) {
         console.error('Failed to load asset detail:', err);
       }
+
+      // Start polling every 3 seconds for live position updates
+      const interval = setInterval(async () => {
+        if (get().selectedAssetId !== id) {
+          clearInterval(interval);
+          return;
+        }
+        try {
+          const res = await getAsset(id);
+          set({ selectedAssetDetail: res.data });
+        } catch {
+          // Don't clear on transient errors
+        }
+      }, 3000);
+
+      set({ _pollInterval: interval });
     }
   },
 
-  clearSelection: () => set({ selectedAssetId: null, selectedAssetDetail: null }),
+  clearSelection: () => {
+    const prev = get()._pollInterval;
+    if (prev) clearInterval(prev);
+    set({ selectedAssetId: null, selectedAssetDetail: null, _pollInterval: null });
+  },
 }));
 
 export default useAssetStore;

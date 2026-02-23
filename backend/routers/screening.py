@@ -137,6 +137,8 @@ def _run_screening_job(
             job.error_message = "Failed to parse asset TLE"
             db.commit()
             return
+        # Ensure catalog is populated before screening
+        catalog_service.ensure_catalog_populated(min_objects=50)
         catalog = catalog_service.get_all_tles()
 
         logger.info(
