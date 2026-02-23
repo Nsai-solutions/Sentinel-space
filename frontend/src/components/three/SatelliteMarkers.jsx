@@ -24,12 +24,17 @@ export default function SatelliteMarkers() {
   const [positions, setPositions] = useState({});
   const [orbitTrail, setOrbitTrail] = useState(null);
   const pulseRef = useRef(0);
+  const failCountRef = useRef(0);
 
   // Fetch positions periodically
   useEffect(() => {
     if (assets.length === 0) return;
+    failCountRef.current = 0;
 
     const fetchPositions = async () => {
+      // Stop polling after 5 consecutive failures
+      if (failCountRef.current >= 5) return;
+
       const noradIds = assets.map((a) => a.norad_id);
       let posMap = {};
 
@@ -40,8 +45,8 @@ export default function SatelliteMarkers() {
         for (const sat of sats) {
           posMap[sat.norad_id] = latLonAltToCartesian(sat.latitude, sat.longitude, sat.altitude_km);
         }
-      } catch (err) {
-        console.warn('Batch propagation failed, falling back to individual:', err.message);
+      } catch {
+        // Batch failed — try individual below
       }
 
       // Fallback: fetch individually for any missing satellites
@@ -62,6 +67,9 @@ export default function SatelliteMarkers() {
 
       if (Object.keys(posMap).length > 0) {
         setPositions(posMap);
+        failCountRef.current = 0;
+      } else {
+        failCountRef.current++;
       }
     };
 

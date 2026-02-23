@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -37,6 +38,48 @@ async def lifespan(app: FastAPI):
     # Pre-load TLE catalog in background
     from services.tle_catalog import catalog_service
     catalog_service.initialize()
+
+    # Seed default assets if DB is empty (handles Vercel cold starts)
+    from database.database import SessionLocal
+    from database.models import Asset
+
+    db = SessionLocal()
+    try:
+        if db.query(Asset).count() == 0:
+            logger.info("Empty database detected, seeding default assets...")
+            default_norad_ids = [25544, 33591, 41866]  # ISS, NOAA 19, GOES 16
+            for nid in default_norad_ids:
+                try:
+                    tle = catalog_service.get_tle(nid)
+                    if not tle:
+                        continue
+                    existing = db.query(Asset).filter(Asset.norad_id == nid).first()
+                    if existing:
+                        continue
+                    orbit_type = None
+                    try:
+                        from core.propagator import OrbitalPropagator
+                        prop = OrbitalPropagator(tle)
+                        elements = prop.get_orbital_elements(datetime.utcnow())
+                        orbit_type = elements.orbit_type
+                    except Exception:
+                        pass
+                    asset = Asset(
+                        norad_id=tle.catalog_number,
+                        name=tle.name,
+                        tle_line1=tle.line1,
+                        tle_line2=tle.line2,
+                        tle_epoch=tle.epoch_datetime,
+                        orbit_type=orbit_type,
+                    )
+                    db.add(asset)
+                    db.commit()
+                    logger.info("Seeded asset: %s (NORAD %d)", tle.name, nid)
+                except Exception as e:
+                    logger.warning("Failed to seed NORAD %d: %s", nid, e)
+                    db.rollback()
+    finally:
+        db.close()
 
     yield
 

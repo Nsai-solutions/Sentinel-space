@@ -195,9 +195,9 @@ def _asset_to_detail(asset: Asset, db: Session) -> AssetDetail:
         updated_at=asset.updated_at,
     )
 
-    # Compute current position
+    # Compute current position — try catalog TLE first (may be fresher)
     try:
-        tle = _asset_to_tle(asset)
+        tle = catalog_service.get_tle(asset.norad_id) or _asset_to_tle(asset)
         prop = OrbitalPropagator(tle)
         now = datetime.utcnow()
         result = prop.propagate(now)

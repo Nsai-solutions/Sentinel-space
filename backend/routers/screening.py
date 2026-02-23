@@ -138,7 +138,7 @@ def _run_screening_job(
             db.commit()
             return
         # Ensure catalog is populated before screening
-        catalog_service.ensure_catalog_populated(min_objects=50)
+        catalog_service.ensure_catalog_populated(min_objects=500)
         catalog = catalog_service.get_all_tles()
 
         logger.info(

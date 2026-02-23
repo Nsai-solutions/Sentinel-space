@@ -1,9 +1,11 @@
 import DataReadout from '../ui/DataReadout';
+import useAssetStore from '../../stores/assetStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useUIStore from '../../stores/uiStore';
 import './AssetDetail.css';
 
 export default function AssetDetail({ data }) {
+  const assets = useAssetStore((s) => s.assets);
   const startScreening = useConjunctionStore((s) => s.startScreening);
   const screening = useConjunctionStore((s) => s.screening);
   const setRightPanelMode = useUIStore((s) => s.setRightPanelMode);
@@ -71,7 +73,11 @@ export default function AssetDetail({ data }) {
       <div className="asset-detail-actions">
         <button
           className="btn-primary"
-          onClick={() => startScreening([data.id])}
+          onClick={() => {
+            // Resolve fresh DB ID by NORAD ID to handle stale IDs after cold starts
+            const fresh = assets.find(a => a.norad_id === data.norad_id);
+            startScreening([fresh?.id || data.id]);
+          }}
           disabled={screening.active}
         >
           Screen This Asset

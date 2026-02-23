@@ -167,30 +167,32 @@ def propagate_batch(
     minutes: float = 0,
 ):
     """Propagate multiple satellites at a single time step."""
-    dt = datetime.utcnow() + timedelta(minutes=minutes)
-    results = []
+    try:
+        dt = datetime.utcnow() + timedelta(minutes=minutes)
+        results = []
 
-    for nid in norad_ids:
-        tle = _resolve_tle(nid)
-        if not tle:
-            logger.warning("No TLE found for NORAD %d, skipping", nid)
-            continue
+        for nid in norad_ids:
+            tle = _resolve_tle(nid)
+            if not tle:
+                continue
 
-        try:
-            prop = OrbitalPropagator(tle)
-            r = prop.propagate(dt)
-            results.append({
-                "norad_id": nid,
-                "name": tle.name,
-                "latitude": r.latitude,
-                "longitude": r.longitude,
-                "altitude_km": r.altitude,
-                "velocity_kms": r.speed,
-                "position_eci": r.position_eci.tolist(),
-                "in_shadow": r.in_shadow,
-            })
-        except Exception as e:
-            logger.warning("Propagation failed for NORAD %d: %s", nid, e)
-            continue
+            try:
+                prop = OrbitalPropagator(tle)
+                r = prop.propagate(dt)
+                results.append({
+                    "norad_id": nid,
+                    "name": tle.name,
+                    "latitude": r.latitude,
+                    "longitude": r.longitude,
+                    "altitude_km": r.altitude,
+                    "velocity_kms": r.speed,
+                    "position_eci": r.position_eci.tolist(),
+                    "in_shadow": r.in_shadow,
+                })
+            except Exception:
+                continue
 
-    return {"datetime_utc": dt.isoformat(), "satellites": results}
+        return {"datetime_utc": dt.isoformat(), "satellites": results}
+    except Exception as e:
+        logger.error("propagate-batch failed: %s", e)
+        return {"datetime_utc": datetime.utcnow().isoformat(), "satellites": []}
