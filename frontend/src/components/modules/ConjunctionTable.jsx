@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useUIStore from '../../stores/uiStore';
 import ThreatBadge from '../ui/ThreatBadge';
@@ -10,6 +10,11 @@ export default function ConjunctionTable() {
   const selectedConjunctionId = useConjunctionStore((s) => s.selectedConjunctionId);
   const setRightPanelMode = useUIStore((s) => s.setRightPanelMode);
   const [assetFilter, setAssetFilter] = useState('all');
+
+  // Reset filter when conjunctions change (e.g. after clear + re-screen)
+  useEffect(() => {
+    setAssetFilter('all');
+  }, [conjunctions]);
 
   const handleRowClick = (id) => {
     selectConjunction(id);

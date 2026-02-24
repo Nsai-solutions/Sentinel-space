@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { fetchConjunctions, getConjunction, getConjunctionSummary, runScreening, getScreeningStatus, clearConjunctions } from '../api/client';
+import useAssetStore from './assetStore';
 
 const useConjunctionStore = create((set, get) => ({
   conjunctions: [],
@@ -223,6 +224,8 @@ const useConjunctionStore = create((set, get) => ({
         error: null, statusText: '',
       },
     });
+    // Refresh assets so conjunction count badges reset to 0
+    useAssetStore.getState().loadAssets();
   },
 }));
 
