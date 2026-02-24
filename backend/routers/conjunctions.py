@@ -43,6 +43,7 @@ def list_conjunctions(
 
     query = query.order_by(
         ConjunctionEvent.threat_level.desc(),
+        ConjunctionEvent.miss_distance_m.asc(),
         ConjunctionEvent.tca.asc(),
     )
 

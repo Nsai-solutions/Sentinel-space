@@ -153,6 +153,16 @@ def _run_screening_job(
             logger.error("Screening job %d failed: empty catalog", job_id)
             return
 
+        # Clear old conjunction events for this asset before new screening
+        old_events = db.query(ConjunctionEvent).filter(
+            ConjunctionEvent.primary_asset_id == asset_id
+        ).all()
+        if old_events:
+            logger.info("Clearing %d old conjunctions for asset %d", len(old_events), asset_id)
+            for e in old_events:
+                db.delete(e)
+            db.commit()
+
         job.total_objects = len(catalog)
         db.commit()
 
@@ -173,6 +183,21 @@ def _run_screening_job(
             asset_radius_m=asset.hard_body_radius_m or 1.0,
         )
         results = screening_result.conjunctions
+
+        # Deduplicate: same secondary + same TCA (within 60 seconds) = duplicate
+        seen = set()
+        unique_results = []
+        for r in results:
+            key = (r.secondary_tle.catalog_number, round(r.tca.timestamp() / 60))
+            if key not in seen:
+                seen.add(key)
+                unique_results.append(r)
+            else:
+                logger.debug("Skipping duplicate conjunction: %s at %s",
+                           r.secondary_tle.name, r.tca)
+        results = unique_results
+        logger.info("Screening found %d unique conjunctions (removed %d duplicates)",
+                    len(results), len(screening_result.conjunctions) - len(results))
 
         # Store results in database
         import math

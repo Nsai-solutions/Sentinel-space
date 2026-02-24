@@ -304,22 +304,35 @@ def _integrate_gaussian_over_circle(
     return float(total)
 
 
-def classify_threat_level(pc: float) -> str:
+def classify_threat_level(pc: float, miss_distance_m: float = None) -> str:
     """Classify collision probability into threat level.
 
-    CRITICAL: Pc > 1e-3
-    HIGH:     1e-4 < Pc <= 1e-3
-    MODERATE: 1e-5 < Pc <= 1e-4
-    LOW:      Pc <= 1e-5
+    Primary classification by Pc:
+        CRITICAL: Pc > 1e-3
+        HIGH:     1e-4 < Pc <= 1e-3
+        MODERATE: 1e-5 < Pc <= 1e-4
+        LOW:      Pc <= 1e-5
+
+    Secondary upgrade by miss distance:
+        If miss < 200m  -> at least HIGH
+        If miss < 1000m -> at least MODERATE
     """
     if pc > 1e-3:
-        return "CRITICAL"
+        level = "CRITICAL"
     elif pc > 1e-4:
-        return "HIGH"
+        level = "HIGH"
     elif pc > 1e-5:
-        return "MODERATE"
+        level = "MODERATE"
     else:
-        return "LOW"
+        level = "LOW"
+
+    if miss_distance_m is not None:
+        if miss_distance_m < 200 and level in ("LOW", "MODERATE"):
+            level = "HIGH"
+        elif miss_distance_m < 1000 and level == "LOW":
+            level = "MODERATE"
+
+    return level
 
 
 def run_monte_carlo(

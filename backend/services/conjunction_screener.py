@@ -386,7 +386,7 @@ def _refine_and_compute(
         primary_radius_m, secondary_radius_m,
     )
 
-    threat_level = classify_threat_level(result.collision_probability)
+    threat_level = classify_threat_level(result.collision_probability, miss_distance_m=result.miss_distance_m)
 
     return ConjunctionCandidate(
         primary_tle=primary_tle,

@@ -72,6 +72,79 @@ export default function ConjunctionDetail({ data }) {
         <RiskGauge probability={data.collision_probability} size={140} />
       </div>
 
+      {/* Plain-English explanation */}
+      <div className="conjunction-context">
+        {(() => {
+          const miss = data.miss_distance_m;
+          const relVel = data.relative_velocity_kms;
+          const level = data.threat_level;
+
+          if (miss != null && miss < 50 && relVel != null && relVel < 0.01) {
+            return (
+              <p className="context-text context-info">
+                This object appears to be <strong>docked or co-orbiting</strong> with the protected asset.
+                The near-zero relative velocity and small miss distance indicate they are traveling together.
+              </p>
+            );
+          }
+
+          if (level === 'CRITICAL') {
+            return (
+              <p className="context-text context-critical">
+                <strong>Immediate attention required.</strong> This conjunction has a high collision probability
+                and may require an avoidance maneuver. Typical operational threshold for action is Pc {'>'} 1e-4.
+              </p>
+            );
+          }
+          if (level === 'HIGH') {
+            return (
+              <p className="context-text context-high">
+                <strong>Close monitoring recommended.</strong> This conjunction exceeds the typical watch threshold.
+                Operators would normally begin maneuver planning at this probability level.
+              </p>
+            );
+          }
+          if (level === 'MODERATE') {
+            return (
+              <p className="context-text context-moderate">
+                This conjunction is within the <strong>monitoring threshold</strong>.
+                {miss != null && miss < 1000 && (
+                  <> The miss distance of {miss.toFixed(0)}m is below the typical 1km maneuver consideration threshold.</>
+                )}
+                {relVel != null && relVel > 10 && (
+                  <> The relative velocity of {relVel.toFixed(1)} km/s means the objects would pass each other in milliseconds.</>
+                )}
+              </p>
+            );
+          }
+          if (miss != null && miss < 1000) {
+            return (
+              <p className="context-text context-low">
+                Although classified as low risk, this object will pass within <strong>{miss.toFixed(0)}m</strong> —
+                closer than the typical 1km maneuver consideration threshold used by most operators.
+                {relVel != null && relVel > 5 && (
+                  <> At {relVel.toFixed(1)} km/s relative velocity, there would be no time to react if trajectories shifted.</>
+                )}
+              </p>
+            );
+          }
+          if (miss != null && miss < 5000) {
+            return (
+              <p className="context-text context-low">
+                This object will pass within <strong>{(miss/1000).toFixed(1)}km</strong>. While outside the typical
+                maneuver threshold, it represents a close approach that would be tracked operationally.
+              </p>
+            );
+          }
+          return (
+            <p className="context-text context-low">
+              This conjunction is within the screening threshold but at a comfortable miss distance.
+              No action typically required.
+            </p>
+          );
+        })()}
+      </div>
+
       {/* TCA */}
       <div className="tca-section">
         <div className="tca-label">TIME OF CLOSEST APPROACH</div>

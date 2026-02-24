@@ -60,9 +60,12 @@ export default function LeftPanel() {
     return p.name.toLowerCase().includes(q) || String(p.norad_id).includes(q);
   });
 
+  const clearConjunctionSelection = useConjunctionStore((s) => s.clearSelection);
+
   const handleSelectAsset = (id) => {
     selectAsset(id);
     setRightPanelMode('asset');
+    clearConjunctionSelection();
   };
 
   const handleAddAsset = async (noradId) => {

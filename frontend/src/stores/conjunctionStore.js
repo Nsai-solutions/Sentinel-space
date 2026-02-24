@@ -162,6 +162,8 @@ const useConjunctionStore = create((set, get) => ({
         } else if (d.status === 'COMPLETED') {
           if (d.conjunctions_found === 0 && d.error_message) {
             statusText = `No conjunctions — ${d.error_message}`;
+          } else if (d.conjunctions_found === 0) {
+            statusText = 'Complete: No close approaches detected in 7-day window';
           } else {
             statusText = `Complete: ${d.conjunctions_found} conjunction${d.conjunctions_found !== 1 ? 's' : ''} found`;
           }

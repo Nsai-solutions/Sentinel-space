@@ -139,6 +139,50 @@
   font-size: 12px;
 }
 
+/* Plain-English context */
+.conjunction-context {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.context-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.context-critical {
+  border-left-color: var(--threat-critical);
+  background: rgba(255, 23, 68, 0.08);
+}
+
+.context-high {
+  border-left-color: var(--threat-high);
+  background: rgba(255, 109, 0, 0.08);
+}
+
+.context-moderate {
+  border-left-color: var(--threat-moderate);
+  background: rgba(255, 214, 0, 0.08);
+}
+
+.context-info {
+  border-left-color: var(--accent-primary);
+  background: rgba(68, 138, 255, 0.08);
+}
+
+.context-low {
+  border-left-color: var(--threat-low);
+}
+
+.context-text strong {
+  color: var(--text-primary);
+}
+
 .btn-primary {
   background: var(--accent-primary);
   color: white;

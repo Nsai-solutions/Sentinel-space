@@ -17,12 +17,17 @@ export default function BottomPanel({ expanded }) {
   const setTab = useUIStore((s) => s.setBottomPanelTab);
   const togglePanel = useUIStore((s) => s.toggleBottomPanel);
   const assets = useAssetStore((s) => s.assets);
+  const selectedAssetId = useAssetStore((s) => s.selectedAssetId);
   const screening = useConjunctionStore((s) => s.screening);
   const startScreening = useConjunctionStore((s) => s.startScreening);
 
   const handleRunScreening = () => {
-    const ids = assets.map((a) => a.id);
-    startScreening(ids, { timeWindowDays: 7, distanceThreshold: 25 });
+    if (selectedAssetId) {
+      startScreening([selectedAssetId], { timeWindowDays: 7, distanceThreshold: 25 });
+    } else {
+      const ids = assets.map((a) => a.id);
+      startScreening(ids, { timeWindowDays: 7, distanceThreshold: 25 });
+    }
   };
 
   const statusClass = screening.status === 'FAILED' ? 'error'
@@ -59,9 +64,13 @@ export default function BottomPanel({ expanded }) {
           <button
             className="btn-screen"
             onClick={handleRunScreening}
-            disabled={screening.active}
+            disabled={screening.active || assets.length === 0}
           >
-            {screening.active ? `Screening ${Math.round(screening.progress * 100)}%` : 'Run Screening'}
+            {screening.active
+              ? `Screening ${Math.round(screening.progress * 100)}%`
+              : selectedAssetId
+                ? 'Screen Selected'
+                : 'Screen All Assets'}
           </button>
           <button className="btn-toggle" onClick={togglePanel}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
