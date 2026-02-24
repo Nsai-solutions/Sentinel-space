@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 import threading
+from dataclasses import replace
 
 import requests
 
@@ -22,11 +24,14 @@ _LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 _LOGOUT_URL = "https://www.space-track.org/ajaxauth/logout"
 _GP_QUERY_URL = (
     "https://www.space-track.org/basicspacedata/query"
-    "/class/gp/EPOCH/>now-3/OBJECT_TYPE/PAYLOAD"
+    "/class/gp/EPOCH/>now-3"
     "/orderby/NORAD_CAT_ID/format/3le"
 )
 
 _MIN_FETCH_INTERVAL_S = 600  # 10 minutes
+
+# Space-Track 3LE prefixes names with a classification char: "0 ISS (ZARYA)"
+_ST_NAME_PREFIX = re.compile(r"^[0-9A-Z] ")
 
 
 class SpaceTrackClient:
@@ -89,6 +94,14 @@ class SpaceTrackClient:
                 return []
 
             tles = parse_tle_text(tle_text)
+
+            # Strip classification prefix from names (e.g. "0 ISS (ZARYA)" → "ISS (ZARYA)")
+            cleaned = []
+            for tle in tles:
+                name = _ST_NAME_PREFIX.sub("", tle.name)
+                cleaned.append(replace(tle, name=name) if name != tle.name else tle)
+            tles = cleaned
+
             logger.info("Space-Track: parsed %d TLEs", len(tles))
 
             with self._lock:
