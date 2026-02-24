@@ -59,10 +59,10 @@ def compute_collision_probability(
     if rel_vel_mag < 1e-6:
         return CollisionResult(
             collision_probability=0.0,
-            miss_distance_m=np.linalg.norm(delta_r),
+            miss_distance_m=float(np.linalg.norm(delta_r)),
             radial_m=0.0, in_track_m=0.0, cross_track_m=0.0,
             relative_velocity_kms=0.0,
-            combined_hard_body_radius_m=radius1 + radius2,
+            combined_hard_body_radius_m=float(radius1 + radius2),
             conjunction_plane_miss=(0.0, 0.0),
         )
 
@@ -104,13 +104,13 @@ def compute_collision_probability(
     pc = _alfano_2d_pc(miss_2d, cov_2d, combined_radius)
 
     return CollisionResult(
-        collision_probability=pc,
-        miss_distance_m=miss_distance_m,
-        radial_m=ric[0],
-        in_track_m=ric[1],
-        cross_track_m=ric[2],
-        relative_velocity_kms=rel_vel_mag / 1000.0,
-        combined_hard_body_radius_m=combined_radius,
+        collision_probability=float(pc),
+        miss_distance_m=float(miss_distance_m),
+        radial_m=float(ric[0]),
+        in_track_m=float(ric[1]),
+        cross_track_m=float(ric[2]),
+        relative_velocity_kms=float(rel_vel_mag / 1000.0),
+        combined_hard_body_radius_m=float(combined_radius),
         conjunction_plane_miss=(float(miss_2d[0]), float(miss_2d[1])),
     )
 

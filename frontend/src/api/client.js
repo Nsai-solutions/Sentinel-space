@@ -35,6 +35,8 @@ export const getConjunctionHistory = (id) => api.get(`/conjunctions/${id}/histor
 export const runMonteCarlo = (id, n) => api.post(`/conjunctions/${id}/monte-carlo`, null, { params: { n_samples: n } });
 export const acknowledgeConjunction = (id) => api.post(`/conjunctions/${id}/acknowledge`);
 export const getConjunctionSummary = () => api.get('/conjunctions/summary');
+export const clearConjunctions = (assetId) =>
+  api.delete('/conjunctions', { params: assetId ? { asset_id: assetId } : {} });
 
 // Maneuvers
 export const computeManeuvers = (data) => api.post('/maneuvers/compute', data);

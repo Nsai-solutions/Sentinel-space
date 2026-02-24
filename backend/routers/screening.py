@@ -167,9 +167,9 @@ def _run_screening_job(
         db.commit()
 
         def progress_callback(pct, candidates, conjunctions):
-            job.progress = pct
-            job.candidates_found = candidates
-            job.conjunctions_found = conjunctions
+            job.progress = float(pct)
+            job.candidates_found = int(candidates)
+            job.conjunctions_found = int(conjunctions)
             db.commit()
 
         # Run screening
@@ -218,25 +218,25 @@ def _run_screening_job(
 
             event = ConjunctionEvent(
                 primary_asset_id=asset_id,
-                secondary_norad_id=r.secondary_tle.catalog_number,
+                secondary_norad_id=int(r.secondary_tle.catalog_number),
                 secondary_name=r.secondary_tle.name,
                 tca=r.tca,
-                miss_distance_m=r.miss_distance_m,
-                radial_m=r.radial_m,
-                in_track_m=r.in_track_m,
-                cross_track_m=r.cross_track_m,
-                relative_velocity_kms=r.relative_velocity_kms,
-                collision_probability=r.collision_probability,
+                miss_distance_m=float(r.miss_distance_m),
+                radial_m=float(r.radial_m),
+                in_track_m=float(r.in_track_m),
+                cross_track_m=float(r.cross_track_m),
+                relative_velocity_kms=float(r.relative_velocity_kms),
+                collision_probability=float(r.collision_probability),
                 threat_level=ThreatLevel(r.threat_level),
                 screening_job_id=job_id,
                 status=EventStatus.ACTIVE,
-                primary_sigma_radial_m=math.sqrt(cov1[0, 0]) * 1000.0,
-                primary_sigma_in_track_m=math.sqrt(cov1[1, 1]) * 1000.0,
-                primary_sigma_cross_track_m=math.sqrt(cov1[2, 2]) * 1000.0,
-                secondary_sigma_radial_m=math.sqrt(cov2[0, 0]) * 1000.0,
-                secondary_sigma_in_track_m=math.sqrt(cov2[1, 1]) * 1000.0,
-                secondary_sigma_cross_track_m=math.sqrt(cov2[2, 2]) * 1000.0,
-                combined_hard_body_radius_m=(asset.hard_body_radius_m or 1.0) + sec_radius,
+                primary_sigma_radial_m=float(math.sqrt(cov1[0, 0]) * 1000.0),
+                primary_sigma_in_track_m=float(math.sqrt(cov1[1, 1]) * 1000.0),
+                primary_sigma_cross_track_m=float(math.sqrt(cov1[2, 2]) * 1000.0),
+                secondary_sigma_radial_m=float(math.sqrt(cov2[0, 0]) * 1000.0),
+                secondary_sigma_in_track_m=float(math.sqrt(cov2[1, 1]) * 1000.0),
+                secondary_sigma_cross_track_m=float(math.sqrt(cov2[2, 2]) * 1000.0),
+                combined_hard_body_radius_m=float((asset.hard_body_radius_m or 1.0) + sec_radius),
             )
             db.add(event)
             new_events.append(event)

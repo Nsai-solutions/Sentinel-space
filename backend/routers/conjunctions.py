@@ -76,6 +76,23 @@ def list_conjunctions(
     return results
 
 
+@router.delete("")
+def clear_conjunctions(
+    asset_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Clear conjunction events. If asset_id provided, clear only for that asset."""
+    query = db.query(ConjunctionEvent)
+    if asset_id:
+        query = query.filter(ConjunctionEvent.primary_asset_id == asset_id)
+
+    count = query.count()
+    query.delete()
+    db.commit()
+
+    return {"deleted": count}
+
+
 @router.get("/summary")
 def conjunction_summary(db: Session = Depends(get_db)):
     """Get threat level summary counts."""

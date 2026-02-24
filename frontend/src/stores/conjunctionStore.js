@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchConjunctions, getConjunction, getConjunctionSummary, runScreening, getScreeningStatus } from '../api/client';
+import { fetchConjunctions, getConjunction, getConjunctionSummary, runScreening, getScreeningStatus, clearConjunctions } from '../api/client';
 
 const useConjunctionStore = create((set, get) => ({
   conjunctions: [],
@@ -205,6 +205,25 @@ const useConjunctionStore = create((set, get) => ({
   },
 
   clearSelection: () => set({ selectedConjunctionId: null, selectedConjunction: null }),
+
+  clearAllConjunctions: async () => {
+    try {
+      await clearConjunctions();
+    } catch (err) {
+      console.warn('Failed to clear conjunctions on server:', err.message);
+    }
+    set({
+      conjunctions: [],
+      selectedConjunctionId: null,
+      selectedConjunction: null,
+      summary: { total: 0, by_level: {} },
+      screening: {
+        active: false, jobId: null, progress: 0, status: null,
+        totalObjects: 0, candidatesFound: 0, conjunctionsFound: 0,
+        error: null, statusText: '',
+      },
+    });
+  },
 }));
 
 export default useConjunctionStore;

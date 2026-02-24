@@ -106,6 +106,23 @@
   color: var(--threat-low);
 }
 
+.btn-clear {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 8px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
 .btn-toggle {
   background: none;
   color: var(--text-secondary);

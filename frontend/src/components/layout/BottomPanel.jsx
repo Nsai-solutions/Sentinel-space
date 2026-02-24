@@ -20,6 +20,7 @@ export default function BottomPanel({ expanded }) {
   const selectedAssetId = useAssetStore((s) => s.selectedAssetId);
   const screening = useConjunctionStore((s) => s.screening);
   const startScreening = useConjunctionStore((s) => s.startScreening);
+  const clearAllConjunctions = useConjunctionStore((s) => s.clearAllConjunctions);
 
   const handleRunScreening = () => {
     if (selectedAssetId) {
@@ -60,6 +61,15 @@ export default function BottomPanel({ expanded }) {
               )}
               <span className="screening-status-text">{screening.statusText}</span>
             </div>
+          )}
+          {screening.statusText && !screening.active && (
+            <button
+              className="btn-clear"
+              onClick={clearAllConjunctions}
+              title="Clear screening results"
+            >
+              Clear
+            </button>
           )}
           <button
             className="btn-screen"

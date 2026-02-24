@@ -145,6 +145,28 @@
   color: var(--text-secondary);
 }
 
+.btn-delete-asset {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.asset-item:hover .btn-delete-asset {
+  opacity: 1;
+}
+
+.btn-delete-asset:hover {
+  color: var(--threat-critical);
+  background: rgba(255, 23, 68, 0.1);
+}
+
 /* Preset satellite picker */
 .preset-list {
   max-height: 240px;
