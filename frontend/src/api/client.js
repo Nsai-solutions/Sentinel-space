@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Use VITE_API_URL env var for deployed backend, fall back to local proxy
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://sentinel-space.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE,
