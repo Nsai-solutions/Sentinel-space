@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,34 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+_refresh_shutdown = threading.Event()
+
+
+def _background_refresh_loop(interval_hours: float):
+    """Background thread that periodically refreshes the TLE catalog."""
+    from services.tle_catalog import catalog_service
+
+    interval_seconds = interval_hours * 3600
+    logger.info("Background TLE refresh thread started (interval: %.1fh)", interval_hours)
+
+    while not _refresh_shutdown.is_set():
+        if _refresh_shutdown.wait(timeout=interval_seconds):
+            break
+
+        logger.info("Background TLE refresh starting...")
+        try:
+            count = catalog_service.refresh_catalog()
+            logger.info(
+                "Background TLE refresh complete: %d new/updated, %d total",
+                count,
+                catalog_service.catalog_size,
+            )
+        except Exception as e:
+            logger.error("Background TLE refresh failed: %s", e)
+
+    logger.info("Background TLE refresh thread stopped")
 
 
 @asynccontextmanager
@@ -81,9 +110,28 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # Start background refresh thread (skip on Vercel serverless)
+    _refresh_thread = None
+    is_vercel = os.environ.get("VERCEL") or os.environ.get("IS_VERCEL")
+    if not is_vercel:
+        refresh_hours = float(os.environ.get("TLE_REFRESH_HOURS", "6"))
+        _refresh_thread = threading.Thread(
+            target=_background_refresh_loop,
+            args=(refresh_hours,),
+            daemon=True,
+            name="tle-refresh",
+        )
+        _refresh_thread.start()
+        logger.info("Background TLE refresh scheduled every %.1f hours", refresh_hours)
+    else:
+        logger.info("Vercel detected, skipping background TLE refresh")
+
     yield
 
     logger.info("SentinelSpace shutting down")
+    _refresh_shutdown.set()
+    if _refresh_thread is not None:
+        _refresh_thread.join(timeout=5)
 
 
 app = FastAPI(

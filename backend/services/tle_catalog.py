@@ -53,6 +53,7 @@ class TLECatalogService:
         self._catalog: dict[int, TLEData] = {}
         self._lock = threading.Lock()
         self._last_refresh: Optional[datetime] = None
+        self._last_refresh_source: Optional[str] = None
         self._initialized = False
 
     def initialize(self):
@@ -84,10 +85,10 @@ class TLECatalogService:
             # Load user-added assets from database into catalog
             self._load_assets_from_db()
 
-            # If catalog is still small, try fetching from CelesTrak
+            # If catalog is still small, try fetching from external sources
             if self.catalog_size < 500:
-                logger.info("Catalog too small (%d), fetching from CelesTrak...", self.catalog_size)
-                self._fetch_initial_catalog()
+                logger.info("Catalog too small (%d), fetching from external sources...", self.catalog_size)
+                self._fetch_full_catalog(source="startup")
 
             self._initialized = True
             logger.info("Catalog initialized with %d objects", self.catalog_size)
@@ -181,6 +182,110 @@ class TLECatalogService:
         if self.catalog_size > 0:
             self._save_catalog_cache()
 
+    def _merge_tles(self, incoming: list[TLEData]) -> int:
+        """Merge TLEs into catalog, keeping newer epoch for duplicates."""
+        count = 0
+        with self._lock:
+            for tle in incoming:
+                existing = self._catalog.get(tle.catalog_number)
+                if existing is None or tle.epoch_datetime > existing.epoch_datetime:
+                    self._catalog[tle.catalog_number] = tle
+                    count += 1
+        return count
+
+    def _fetch_full_catalog(self, source: str = "manual") -> int:
+        """Fetch catalog using Space-Track (if configured) + CelesTrak supplements.
+
+        Strategy:
+          1. Try Space-Track for bulk GP data (payloads with epoch < 3 days)
+          2. Always fetch CelesTrak stations group (space stations)
+          3. Always fetch CelesTrak active group (fills in debris + rocket bodies)
+          4. If Space-Track failed/unconfigured, also fetch remaining CelesTrak groups
+          5. Merge by epoch (newer overwrites older for same NORAD ID)
+        """
+        import requests as req_lib
+        from services.spacetrack_client import spacetrack_client
+
+        total = 0
+        spacetrack_succeeded = False
+
+        # Step 1: Try Space-Track bulk fetch (payloads only)
+        if spacetrack_client.is_configured():
+            logger.info("Attempting Space-Track bulk catalog fetch...")
+            st_tles = spacetrack_client.fetch_catalog()
+            if st_tles:
+                merged = self._merge_tles(st_tles)
+                total += merged
+                spacetrack_succeeded = True
+                logger.info(
+                    "Space-Track: merged %d TLEs (%d total fetched)",
+                    merged,
+                    len(st_tles),
+                )
+
+        # Step 2: Always fetch CelesTrak stations (space stations may not be in ST query)
+        try:
+            logger.info("Fetching CelesTrak stations supplement...")
+            resp = req_lib.get(CATALOG_URLS["stations"], timeout=30)
+            resp.raise_for_status()
+            stations_tles = parse_tle_text(resp.text)
+            merged = self._merge_tles(stations_tles)
+            total += merged
+            logger.info("CelesTrak stations: merged %d TLEs", merged)
+        except Exception as e:
+            logger.warning("Failed to fetch CelesTrak stations: %s", e)
+
+        # Step 3: Always fetch CelesTrak active (includes debris + rocket bodies ST skips)
+        try:
+            logger.info("Fetching CelesTrak active supplement...")
+            resp = req_lib.get(CATALOG_URLS["active"], timeout=30)
+            resp.raise_for_status()
+            active_tles = parse_tle_text(resp.text)
+            merged = self._merge_tles(active_tles)
+            total += merged
+            logger.info("CelesTrak active: merged %d TLEs", merged)
+        except Exception as e:
+            logger.warning("Failed to fetch CelesTrak active: %s", e)
+
+        # Step 4: If Space-Track failed, also fetch remaining CelesTrak groups as fallback
+        if not spacetrack_succeeded:
+            logger.info("Space-Track unavailable, fetching remaining CelesTrak groups...")
+            for group_name, url in CATALOG_URLS.items():
+                if group_name in ("stations", "active"):
+                    continue  # Already fetched above
+                try:
+                    result = self._downloader.download(
+                        url,
+                        self._data_dir / "tle_cache" / f"{group_name}.txt",
+                    )
+                    if result.path and result.path.exists():
+                        text = result.path.read_text(encoding="utf-8")
+                        tles = parse_tle_text(text)
+                        merged = self._merge_tles(tles)
+                        total += merged
+                        logger.info("CelesTrak %s: merged %d TLEs", group_name, merged)
+                except Exception as e:
+                    logger.warning("Failed to refresh %s: %s", group_name, e)
+
+        # Update metadata
+        self._last_refresh = datetime.utcnow()
+        if spacetrack_succeeded:
+            self._last_refresh_source = "space-track"
+        elif source == "startup":
+            self._last_refresh_source = "startup"
+        else:
+            self._last_refresh_source = "celestrak"
+
+        logger.info(
+            "Catalog fetch complete (%s): %d new/updated, %d total objects",
+            self._last_refresh_source,
+            total,
+            self.catalog_size,
+        )
+
+        self._save_catalog_cache()
+        return total
+
     @property
     def catalog_size(self) -> int:
         with self._lock:
@@ -243,29 +348,8 @@ class TLECatalogService:
             return []
 
     def refresh_catalog(self) -> int:
-        """Refresh the full catalog from CelesTrak. Returns total count."""
-        total = 0
-        for group_name, url in CATALOG_URLS.items():
-            try:
-                result = self._downloader.download(
-                    url,
-                    self._data_dir / "tle_cache" / f"{group_name}.txt",
-                )
-                if result.path and result.path.exists():
-                    text = result.path.read_text(encoding="utf-8")
-                    tles = parse_tle_text(text)
-                    self.add_tles(tles)
-                    total += len(tles)
-                    logger.info("Loaded %d TLEs from %s", len(tles), group_name)
-            except Exception as e:
-                logger.warning("Failed to refresh %s: %s", group_name, e)
-
-        self._last_refresh = datetime.utcnow()
-        logger.info("Catalog refresh complete: %d total objects", self.catalog_size)
-
-        # Save full catalog to cache
-        self._save_catalog_cache()
-        return total
+        """Refresh the full catalog from Space-Track + CelesTrak. Returns total count."""
+        return self._fetch_full_catalog(source="manual")
 
     def _save_catalog_cache(self):
         """Save current catalog to disk cache."""
@@ -283,12 +367,16 @@ class TLECatalogService:
 
     def get_catalog_stats(self) -> dict:
         """Get statistics about the catalog."""
+        from services.spacetrack_client import spacetrack_client
+
         with self._lock:
             total = len(self._catalog)
 
         return {
             "total_objects": total,
             "last_refresh": self._last_refresh.isoformat() if self._last_refresh else None,
+            "last_refresh_source": self._last_refresh_source,
+            "spacetrack_configured": spacetrack_client.is_configured(),
             "initialized": self._initialized,
         }
 

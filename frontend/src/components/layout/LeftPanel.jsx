@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import useAssetStore from '../../stores/assetStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useUIStore from '../../stores/uiStore';
+import { getCatalogStats, refreshCatalog } from '../../api/client';
+import toast from 'react-hot-toast';
 import ThreatBadge from '../ui/ThreatBadge';
 import './LeftPanel.css';
 
@@ -45,6 +47,55 @@ export default function LeftPanel() {
   const [addInput, setAddInput] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [loadingPreset, setLoadingPreset] = useState(null);
+
+  // Catalog status
+  const [catalogStats, setCatalogStats] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadCatalogStats = useCallback(async () => {
+    try {
+      const res = await getCatalogStats();
+      setCatalogStats(res.data);
+    } catch (err) {
+      console.error('Failed to load catalog stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCatalogStats();
+    const interval = setInterval(loadCatalogStats, 60000);
+    return () => clearInterval(interval);
+  }, [loadCatalogStats]);
+
+  const handleRefreshCatalog = async () => {
+    setRefreshing(true);
+    try {
+      const res = await refreshCatalog();
+      toast.success(res.data.detail || 'Catalog refreshed');
+      await loadCatalogStats();
+    } catch (err) {
+      toast.error('Catalog refresh failed');
+    }
+    setRefreshing(false);
+  };
+
+  const getFreshnessColor = () => {
+    if (!catalogStats?.last_refresh) return 'var(--threat-moderate)';
+    const hoursSince = (Date.now() - new Date(catalogStats.last_refresh).getTime()) / 3600000;
+    if (hoursSince > 24) return 'var(--threat-critical)';
+    if (hoursSince > 12) return 'var(--threat-high)';
+    return 'var(--threat-low)';
+  };
+
+  const getTimeSinceRefresh = () => {
+    if (!catalogStats?.last_refresh) return 'Never';
+    const ms = Date.now() - new Date(catalogStats.last_refresh).getTime();
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h ago`;
+    if (hours > 0) return `${hours}h ${minutes}m ago`;
+    return `${minutes}m ago`;
+  };
 
   const filteredAssets = assets.filter(
     (a) => a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -220,6 +271,50 @@ export default function LeftPanel() {
         <div className="stat-row">
           <span className="stat-label">Active Conjunctions</span>
           <span className="stat-value font-data">{summary.total || 0}</span>
+        </div>
+
+        <div className="catalog-status">
+          <div className="stat-row">
+            <span className="stat-label">Catalog Objects</span>
+            <span className="stat-value font-data">
+              {catalogStats ? catalogStats.total_objects.toLocaleString() : '...'}
+            </span>
+          </div>
+          <div className="stat-row">
+            <span className="stat-label">Last Refresh</span>
+            <span className="stat-value font-data" style={{ color: getFreshnessColor() }}>
+              {catalogStats ? getTimeSinceRefresh() : '...'}
+            </span>
+          </div>
+          {catalogStats?.spacetrack_configured && (
+            <div className="stat-row">
+              <span className="stat-label">Source</span>
+              <span className="stat-value font-data" style={{ fontSize: 10, textTransform: 'uppercase' }}>
+                {catalogStats.last_refresh_source || 'N/A'}
+              </span>
+            </div>
+          )}
+          <button
+            className="btn-refresh-catalog"
+            onClick={handleRefreshCatalog}
+            disabled={refreshing}
+            title="Refresh TLE catalog from external sources"
+          >
+            <svg
+              className={refreshing ? 'spin' : ''}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            {refreshing ? 'Refreshing...' : 'Refresh Catalog'}
+          </button>
         </div>
       </div>
     </aside>
