@@ -125,17 +125,36 @@ def export_conjunctions(
         query = query.filter(ConjunctionEvent.primary_asset_id == asset_id)
 
     events = query.order_by(ConjunctionEvent.tca.asc()).all()
+    logger.info("Export conjunctions: format=%s, asset_id=%s, rows=%d", format, asset_id, len(events))
+
+    # Build asset name lookup
+    asset_ids = {e.primary_asset_id for e in events}
+    assets_map = {}
+    if asset_ids:
+        for a in db.query(Asset).filter(Asset.id.in_(asset_ids)).all():
+            assets_map[a.id] = a.name
 
     if format == "csv":
-        lines = ["event_id,primary_asset_id,secondary_norad_id,secondary_name,tca,miss_distance_m,radial_m,in_track_m,cross_track_m,relative_velocity_kms,collision_probability,threat_level,status"]
+        lines = [
+            "event_id,primary_asset,primary_norad_id,secondary_name,secondary_norad_id,"
+            "tca,miss_distance_m,radial_m,in_track_m,cross_track_m,"
+            "relative_velocity_kms,collision_probability,threat_level,status"
+        ]
         for e in events:
+            asset_name = assets_map.get(e.primary_asset_id, "Unknown")
+            asset_obj = db.query(Asset).filter(Asset.id == e.primary_asset_id).first()
+            norad_id = asset_obj.norad_id if asset_obj else ""
             lines.append(
-                f"{e.id},{e.primary_asset_id},{e.secondary_norad_id},"
-                f"\"{e.secondary_name or ''}\","
+                f"{e.id},\"{asset_name}\",{norad_id},"
+                f"\"{e.secondary_name or ''}\",{e.secondary_norad_id},"
                 f"{e.tca.isoformat() if e.tca else ''},"
-                f"{e.miss_distance_m},{e.radial_m or ''},{e.in_track_m or ''},"
-                f"{e.cross_track_m or ''},{e.relative_velocity_kms or ''},"
-                f"{e.collision_probability or ''},{e.threat_level.value if e.threat_level else ''},"
+                f"{e.miss_distance_m or ''},"
+                f"{e.radial_m if e.radial_m is not None else ''},"
+                f"{e.in_track_m if e.in_track_m is not None else ''},"
+                f"{e.cross_track_m if e.cross_track_m is not None else ''},"
+                f"{e.relative_velocity_kms if e.relative_velocity_kms is not None else ''},"
+                f"{e.collision_probability if e.collision_probability is not None else ''},"
+                f"{e.threat_level.value if e.threat_level else ''},"
                 f"{e.status.value if e.status else ''}"
             )
         content = "\n".join(lines)
@@ -148,15 +167,22 @@ def export_conjunctions(
     # JSON format
     data = []
     for e in events:
+        asset_name = assets_map.get(e.primary_asset_id, "Unknown")
         data.append({
             "event_id": e.id,
+            "primary_asset": asset_name,
             "primary_asset_id": e.primary_asset_id,
-            "secondary_norad_id": e.secondary_norad_id,
             "secondary_name": e.secondary_name,
+            "secondary_norad_id": e.secondary_norad_id,
             "tca": e.tca.isoformat() if e.tca else None,
             "miss_distance_m": e.miss_distance_m,
+            "radial_m": e.radial_m,
+            "in_track_m": e.in_track_m,
+            "cross_track_m": e.cross_track_m,
+            "relative_velocity_kms": e.relative_velocity_kms,
             "collision_probability": e.collision_probability,
             "threat_level": e.threat_level.value if e.threat_level else None,
+            "status": e.status.value if e.status else None,
         })
 
     return data

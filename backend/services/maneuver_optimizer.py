@@ -1,8 +1,9 @@
 """Collision avoidance maneuver planning.
 
-Computes optimal avoidance maneuvers for a protected asset when facing
-a high or critical conjunction event. Generates multiple maneuver options
-with different directions, timings, and delta-v magnitudes.
+Computes avoidance maneuver options using first-order orbital mechanics
+approximations.  For each RIC direction (in-track, radial, cross-track)
+and both +/- signs, estimates the position offset at TCA produced by a
+given delta-v and recomputes miss distance and collision probability.
 """
 
 from __future__ import annotations
@@ -14,19 +15,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import numpy as np
-from sgp4.api import Satrec, WGS72
 
 from core.propagator import OrbitalPropagator
 from core.tle_parser import TLEData
-from utils.constants import MU_EARTH, R_EARTH
-from utils.time_utils import datetime_to_jd
-
-from .collision_probability import compute_collision_probability, classify_threat_level
-from .uncertainty_model import (
-    default_covariance_ric,
-    covariance_ric_to_eci,
-    estimate_hard_body_radius,
-)
+from utils.constants import MU_EARTH
 
 logger = logging.getLogger(__name__)
 
@@ -58,92 +50,122 @@ def compute_avoidance_maneuvers(
 ) -> list[ManeuverOption]:
     """Compute avoidance maneuver options for a conjunction.
 
-    Generates multiple options varying direction and timing:
-    - In-track: most fuel-efficient (changes orbit phase)
-    - Radial: changes altitude
-    - Cross-track: changes orbital plane (least efficient)
+    Uses first-order approximations:
+      - In-track ΔV  → along-track offset ≈ ΔV × time_to_TCA
+      - Radial ΔV    → radial offset     ≈ ΔV × period / (2π)
+      - Cross-track ΔV → cross-track offset ≈ ΔV × period / (2π)
 
-    For each direction, tries multiple timings:
-    - 0.5 orbits before TCA
-    - 1.0 orbits before TCA
-    - 2.0 orbits before TCA
-
-    Args:
-        asset_tle: TLE of the protected satellite.
-        secondary_tle: TLE of the threat object.
-        tca: Time of closest approach.
-        current_miss_m: Current miss distance (meters).
-        current_pc: Current collision probability.
-        asset_radius_m: Asset hard-body radius.
-        delta_v_budget_ms: Available delta-v budget (m/s). None = unlimited.
-        pc_threshold: Target Pc to achieve.
-
-    Returns:
-        List of ManeuverOption sorted by delta_v (ascending).
+    Generates options for each direction (±) and several ΔV magnitudes.
     """
     options: list[ManeuverOption] = []
 
     try:
         primary_prop = OrbitalPropagator(asset_tle)
-        # Get orbital period
+        secondary_prop = OrbitalPropagator(secondary_tle)
+
+        # Get orbital elements for period
         elements = primary_prop.get_orbital_elements(tca)
-        period_sec = elements.period * 60.0  # minutes to seconds
+        period_sec = elements.period * 60.0  # minutes → seconds
+
+        # Propagate both objects to TCA to get current geometry
+        p1 = primary_prop.propagate(tca)
+        p2 = secondary_prop.propagate(tca)
+
+        r1 = np.asarray(p1.position_eci, dtype=float)  # km
+        v1 = np.asarray(p1.velocity_eci, dtype=float)   # km/s
+        r2 = np.asarray(p2.position_eci, dtype=float)
     except Exception as e:
-        logger.error("Failed to compute maneuver options: %s", e)
+        logger.error("Failed to set up maneuver computation: %s", e)
         return []
 
-    directions = ["in_track", "radial", "cross_track"]
-    timing_orbits = [0.5, 1.0, 2.0]
+    # Decompose current miss into RIC components (meters)
+    delta_r_m = (r2 - r1) * 1000.0  # km → m
+    r1_m = r1 * 1000.0
+    v1_ms = v1 * 1000.0
+
+    r_mag = np.linalg.norm(r1_m)
+    if r_mag < 1.0:
+        logger.error("Primary position too small for RIC decomposition")
+        return []
+
+    e_r = r1_m / r_mag
+    h = np.cross(r1_m, v1_ms)
+    h_mag = np.linalg.norm(h)
+    if h_mag < 1.0:
+        logger.error("Angular momentum too small for RIC decomposition")
+        return []
+
+    e_c = h / h_mag
+    e_i = np.cross(e_c, e_r)
+
+    miss_radial = float(np.dot(delta_r_m, e_r))
+    miss_in_track = float(np.dot(delta_r_m, e_i))
+    miss_cross_track = float(np.dot(delta_r_m, e_c))
+
+    # Time to TCA for the burn (assume 1 orbit before TCA as reference)
+    time_to_tca_sec = period_sec  # default: 1 orbit
+
+    # Hard body radius for Pc calculation
+    combined_hbr = asset_radius_m + 1.0  # secondary default ~1m
+
+    # ΔV magnitudes to try
+    dv_magnitudes = [0.5, 1.0, 2.0, 5.0]
+
+    directions = [
+        ("in_track+",  "in_track",  +1),
+        ("in_track-",  "in_track",  -1),
+        ("radial+",    "radial",    +1),
+        ("radial-",    "radial",    -1),
+        ("cross_track+", "cross_track", +1),
+        ("cross_track-", "cross_track", -1),
+    ]
+
     label_idx = 0
     labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-    for direction in directions:
-        for t_orbits in timing_orbits:
-            burn_dt = tca - timedelta(seconds=t_orbits * period_sec)
-            if burn_dt < datetime.utcnow():
-                continue  # Can't burn in the past
+    for dv_ms in dv_magnitudes:
+        if delta_v_budget_ms is not None and dv_ms > delta_v_budget_ms:
+            continue
 
-            # Compute required delta-v
-            dv_ms = _compute_delta_v(
-                primary_prop,
-                asset_tle,
-                secondary_tle,
-                burn_dt,
-                tca,
-                direction,
-                asset_radius_m,
-                pc_threshold,
-            )
+        for dir_label, direction, sign in directions:
+            # First-order position offset at TCA (meters)
+            if direction == "in_track":
+                # In-track ΔV shifts along-track position: offset ≈ ΔV × Δt
+                offset_in_track = sign * dv_ms * time_to_tca_sec
+                offset_radial = 0.0
+                offset_cross = 0.0
+            elif direction == "radial":
+                # Radial ΔV shifts radial position: offset ≈ ΔV × P/(2π)
+                offset_radial = sign * dv_ms * period_sec / (2.0 * math.pi)
+                offset_in_track = 0.0
+                offset_cross = 0.0
+            else:  # cross_track
+                # Cross-track ΔV shifts cross-track: offset ≈ ΔV × P/(2π)
+                offset_cross = sign * dv_ms * period_sec / (2.0 * math.pi)
+                offset_radial = 0.0
+                offset_in_track = 0.0
 
-            if dv_ms is None or dv_ms <= 0:
-                continue
+            # New miss distance components
+            new_radial = miss_radial + offset_radial
+            new_in_track = miss_in_track + offset_in_track
+            new_cross = miss_cross_track + offset_cross
 
-            if delta_v_budget_ms is not None and dv_ms > delta_v_budget_ms:
-                continue
+            new_miss_m = math.sqrt(new_radial**2 + new_in_track**2 + new_cross**2)
 
-            # Compute post-maneuver state
-            new_miss_m, new_pc = _evaluate_maneuver(
-                primary_prop,
-                asset_tle,
-                secondary_tle,
-                burn_dt,
-                tca,
-                direction,
-                dv_ms,
-                asset_radius_m,
-            )
+            # Recompute collision probability using simplified Foster formula
+            new_pc = _foster_pc_simple(new_miss_m, combined_hbr)
 
-            # Fuel cost as percentage of budget
+            burn_dt = tca - timedelta(seconds=time_to_tca_sec)
             fuel_pct = (dv_ms / delta_v_budget_ms * 100.0) if delta_v_budget_ms else 0.0
 
-            label = labels[label_idx % len(labels)]
+            lbl = labels[label_idx % len(labels)]
             label_idx += 1
 
             options.append(ManeuverOption(
-                label=label,
-                direction=direction,
+                label=lbl,
+                direction=f"{direction} {'+'if sign > 0 else '-'}",
                 delta_v_ms=round(dv_ms, 4),
-                timing_before_tca_orbits=t_orbits,
+                timing_before_tca_orbits=1.0,
                 burn_time=burn_dt,
                 new_miss_distance_m=round(new_miss_m, 1),
                 new_collision_probability=new_pc,
@@ -152,182 +174,36 @@ def compute_avoidance_maneuvers(
                 original_pc=current_pc,
             ))
 
-    options.sort(key=lambda o: o.delta_v_ms)
+    # Sort by (new Pc ascending, then ΔV ascending)
+    options.sort(key=lambda o: (o.new_collision_probability, o.delta_v_ms))
     return options
 
 
-def _compute_delta_v(
-    primary_prop: OrbitalPropagator,
-    asset_tle: TLEData,
-    secondary_tle: TLEData,
-    burn_dt: datetime,
-    tca: datetime,
-    direction: str,
-    asset_radius_m: float,
-    target_pc: float,
-) -> Optional[float]:
-    """Compute minimum delta-v to reduce Pc below threshold.
+def _foster_pc_simple(miss_m: float, combined_hbr_m: float) -> float:
+    """Simplified 2D Gaussian collision probability estimate.
 
-    Uses bisection search on delta-v magnitude.
+    Uses the Foster formula assuming circular, equal sigmas derived from
+    the miss distance itself (sigma ≈ miss / 2 as a conservative estimate,
+    with a floor of 50 m to avoid numerical issues).
+
+    Pc ≈ (R² / (2 σ²)) × exp(-d² / (2 σ²))
+
+    where d = miss distance, R = combined hard body radius, σ = position uncertainty.
     """
-    # Start with a range of delta-v values
-    dv_low = 0.001  # 1 mm/s
-    dv_high = 1.0   # 1 m/s
+    if miss_m <= 0:
+        return 1.0
 
-    # Check if high end is sufficient
-    _, pc_high = _evaluate_maneuver(
-        primary_prop, asset_tle, secondary_tle,
-        burn_dt, tca, direction, dv_high, asset_radius_m,
-    )
+    # Use a reasonable position uncertainty — scale with miss distance
+    # Typical LEO covariance sigmas are 50-500 m; use max(miss/3, 50)
+    sigma = max(miss_m / 3.0, 50.0)
+    sigma_sq = sigma * sigma
 
-    if pc_high > target_pc:
-        # Need more delta-v, try higher
-        dv_high = 5.0
-        _, pc_high = _evaluate_maneuver(
-            primary_prop, asset_tle, secondary_tle,
-            burn_dt, tca, direction, dv_high, asset_radius_m,
-        )
-        if pc_high > target_pc:
-            return dv_high  # Return max even if not sufficient
+    R = combined_hbr_m
+    d_sq = miss_m * miss_m
 
-    # Bisection to find minimum delta-v
-    for _ in range(20):
-        dv_mid = (dv_low + dv_high) / 2.0
-        _, pc_mid = _evaluate_maneuver(
-            primary_prop, asset_tle, secondary_tle,
-            burn_dt, tca, direction, dv_mid, asset_radius_m,
-        )
+    exponent = -d_sq / (2.0 * sigma_sq)
+    if exponent < -500:
+        return 0.0
 
-        if pc_mid > target_pc:
-            dv_low = dv_mid
-        else:
-            dv_high = dv_mid
-
-        if (dv_high - dv_low) < 0.0001:
-            break
-
-    return dv_high
-
-
-def _evaluate_maneuver(
-    primary_prop: OrbitalPropagator,
-    asset_tle: TLEData,
-    secondary_tle: TLEData,
-    burn_dt: datetime,
-    tca: datetime,
-    direction: str,
-    delta_v_ms: float,
-    asset_radius_m: float,
-) -> tuple[float, float]:
-    """Evaluate a maneuver: compute post-maneuver miss distance and Pc.
-
-    Applies a delta-v in the specified direction at burn_dt, then
-    propagates to TCA to find the new conjunction geometry.
-
-    Returns (new_miss_distance_m, new_collision_probability).
-    """
-    try:
-        secondary_prop = OrbitalPropagator(secondary_tle)
-
-        # Get primary state at burn time
-        p1_burn = primary_prop.propagate(burn_dt)
-        r1 = p1_burn.position_eci  # km
-        v1 = p1_burn.velocity_eci  # km/s
-
-        # Compute direction vector in ECI
-        dv_vec = _direction_vector(r1, v1, direction) * (delta_v_ms / 1000.0)  # m/s -> km/s
-
-        # Apply delta-v
-        v1_new = v1 + dv_vec
-
-        # Simple linear propagation to TCA (approximation)
-        dt_seconds = (tca - burn_dt).total_seconds()
-        # Use two-body approximation for post-maneuver position
-        r1_tca = _two_body_propagate(r1, v1_new, dt_seconds)
-
-        # Get secondary state at TCA
-        p2_tca = secondary_prop.propagate(tca)
-
-        # For more accurate results, we'd create a new TLE from the state vectors
-        # but this approximation is reasonable for maneuver planning
-        r2_tca = p2_tca.position_eci
-        v2_tca = p2_tca.velocity_eci
-
-        # Also need primary velocity at TCA (approximate)
-        v1_tca = _two_body_velocity(r1, v1_new, dt_seconds)
-
-        miss_m = np.linalg.norm(r1_tca - r2_tca) * 1000.0  # km -> m
-
-        # Compute covariance
-        primary_age = max(0.0, (tca - asset_tle.epoch).total_seconds() / 3600.0) if asset_tle.epoch else 48.0
-        secondary_age = max(0.0, (tca - secondary_tle.epoch).total_seconds() / 3600.0) if secondary_tle.epoch else 72.0
-
-        cov1 = covariance_ric_to_eci(default_covariance_ric(primary_age, "payload"), r1_tca, v1_tca)
-        cov2 = covariance_ric_to_eci(default_covariance_ric(secondary_age, "unknown"), r2_tca, v2_tca)
-
-        sec_radius = estimate_hard_body_radius(object_type="unknown")
-
-        result = compute_collision_probability(
-            r1_tca, v1_tca, r2_tca, v2_tca,
-            cov1, cov2, asset_radius_m, sec_radius,
-        )
-
-        return (result.miss_distance_m, result.collision_probability)
-
-    except Exception as e:
-        logger.debug("Maneuver evaluation error: %s", e)
-        return (0.0, 1.0)
-
-
-def _direction_vector(r: np.ndarray, v: np.ndarray, direction: str) -> np.ndarray:
-    """Compute unit direction vector in ECI for the given maneuver direction."""
-    if direction == "in_track":
-        v_mag = np.linalg.norm(v)
-        return v / v_mag if v_mag > 1e-10 else np.array([1.0, 0.0, 0.0])
-
-    elif direction == "radial":
-        r_mag = np.linalg.norm(r)
-        return r / r_mag if r_mag > 1e-10 else np.array([0.0, 0.0, 1.0])
-
-    elif direction == "cross_track":
-        h = np.cross(r, v)
-        h_mag = np.linalg.norm(h)
-        return h / h_mag if h_mag > 1e-10 else np.array([0.0, 1.0, 0.0])
-
-    return np.array([1.0, 0.0, 0.0])
-
-
-def _two_body_propagate(r0: np.ndarray, v0: np.ndarray, dt: float) -> np.ndarray:
-    """Simple two-body propagation using universal variable method.
-
-    For small dt relative to orbital period, a linear approximation
-    with gravitational correction is used.
-    """
-    r0_mag = np.linalg.norm(r0)
-    if r0_mag < 1e-10 or abs(dt) < 1e-10:
-        return r0
-
-    # For short propagation times, use series expansion
-    mu = MU_EARTH
-    r0_mag3 = r0_mag ** 3
-
-    # Position at t (second-order approximation)
-    accel = -mu * r0 / r0_mag3
-    r_new = r0 + v0 * dt + 0.5 * accel * dt ** 2
-
-    return r_new
-
-
-def _two_body_velocity(r0: np.ndarray, v0: np.ndarray, dt: float) -> np.ndarray:
-    """Approximate velocity after two-body propagation."""
-    r0_mag = np.linalg.norm(r0)
-    if r0_mag < 1e-10:
-        return v0
-
-    mu = MU_EARTH
-    r0_mag3 = r0_mag ** 3
-
-    accel = -mu * r0 / r0_mag3
-    v_new = v0 + accel * dt
-
-    return v_new
+    pc = (R * R / (2.0 * sigma_sq)) * math.exp(exponent)
+    return max(0.0, min(1.0, pc))

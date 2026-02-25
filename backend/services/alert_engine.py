@@ -29,57 +29,54 @@ def check_and_generate_alerts(
 ) -> list[Alert]:
     """Check new screening results and generate alerts as needed.
 
-    Compares new events against alert configuration thresholds
-    and generates appropriate alerts.
+    Uses the event's pre-computed threat_level (which accounts for both
+    Pc thresholds AND miss-distance upgrades) instead of re-classifying
+    from collision_probability alone.
     """
-    # Get alert config for this asset (or global)
-    config = db.query(AlertConfig).filter(
-        (AlertConfig.asset_id == asset_id) | (AlertConfig.asset_id.is_(None))
-    ).first()
-
-    critical_threshold = config.critical_threshold if config else DEFAULT_CRITICAL
-    high_threshold = config.high_threshold if config else DEFAULT_HIGH
+    logger.info(
+        "check_and_generate_alerts called: asset_id=%d, events=%d",
+        asset_id, len(new_events),
+    )
 
     alerts_generated: list[Alert] = []
 
     for event in new_events:
-        if event.collision_probability is None:
+        # Use the stored threat_level which already includes miss-distance
+        # upgrades (e.g. miss < 200m → HIGH even if Pc is low)
+        level_str = event.threat_level.value if event.threat_level else None
+        if not level_str:
             continue
 
         pc = event.collision_probability
+        miss = event.miss_distance_m
 
-        if pc > critical_threshold:
+        if level_str in ("CRITICAL", "HIGH"):
             alert = Alert(
                 asset_id=asset_id,
                 conjunction_id=event.id,
-                threat_level=ThreatLevel.CRITICAL,
-                message=f"CRITICAL: Conjunction with {event.secondary_name or event.secondary_norad_id} "
-                        f"at TCA {event.tca.strftime('%Y-%m-%d %H:%M UTC')} - "
-                        f"Pc={pc:.2e}, Miss={event.miss_distance_m:.0f}m",
-                reason="new_critical",
+                threat_level=ThreatLevel(level_str),
+                message=(
+                    f"{level_str}: Conjunction with "
+                    f"{event.secondary_name or event.secondary_norad_id} "
+                    f"at TCA {event.tca.strftime('%Y-%m-%d %H:%M UTC')} - "
+                    f"Pc={pc:.2e}, Miss={miss:.0f}m"
+                ),
+                reason=f"new_{level_str.lower()}",
                 status=AlertStatus.NEW,
             )
             db.add(alert)
             alerts_generated.append(alert)
-
-        elif pc > high_threshold:
-            alert = Alert(
-                asset_id=asset_id,
-                conjunction_id=event.id,
-                threat_level=ThreatLevel.HIGH,
-                message=f"HIGH: Conjunction with {event.secondary_name or event.secondary_norad_id} "
-                        f"at TCA {event.tca.strftime('%Y-%m-%d %H:%M UTC')} - "
-                        f"Pc={pc:.2e}, Miss={event.miss_distance_m:.0f}m",
-                reason="new_high",
-                status=AlertStatus.NEW,
+            logger.info(
+                "Alert created: %s for event %d (Pc=%.2e, miss=%.0fm)",
+                level_str, event.id, pc or 0, miss or 0,
             )
-            db.add(alert)
-            alerts_generated.append(alert)
 
     if alerts_generated:
         db.commit()
         logger.info("Generated %d alerts for asset %d", len(alerts_generated), asset_id)
         _send_email_notifications(db, alerts_generated)
+    else:
+        logger.info("No alerts generated for asset %d (no CRITICAL/HIGH events)", asset_id)
 
     return alerts_generated
 
@@ -151,12 +148,27 @@ def _send_email_notifications(db: Session, alerts: list[Alert]):
         from services.email_service import is_configured, send_alert_email, format_alert_email
 
         if not is_configured():
+            logger.info("Email not configured (no RESEND_API_KEY) — skipping notifications")
             return
 
         prefs = db.query(NotificationPreferences).first()
-        if not prefs or not prefs.email_enabled or not prefs.email:
+        if not prefs:
+            logger.info("No notification preferences found — skipping email")
+            return
+        if not prefs.email_enabled:
+            logger.info("Email notifications disabled in preferences — skipping")
+            return
+        if not prefs.email:
+            logger.info("No recipient email configured — skipping")
             return
 
+        logger.info(
+            "Email prefs: to=%s, critical=%s, high=%s, moderate=%s, low=%s",
+            prefs.email, prefs.notify_critical, prefs.notify_high,
+            prefs.notify_moderate, prefs.notify_low,
+        )
+
+        sent_count = 0
         for alert in alerts:
             level = alert.threat_level.value if alert.threat_level else "LOW"
 
@@ -167,12 +179,18 @@ def _send_email_notifications(db: Session, alerts: list[Alert]):
                 (level == "LOW" and prefs.notify_low)
             )
             if not should_send:
+                logger.info("Skipping email for alert %d (level=%s, not enabled)", alert.id, level)
                 continue
 
             asset = db.query(Asset).filter(Asset.id == alert.asset_id).first()
             asset_name = asset.name if asset else ""
 
             subject, html = format_alert_email(alert.message, level, asset_name)
-            send_alert_email(prefs.email, subject, html)
+            logger.info("Sending alert email: to=%s, subject=%s", prefs.email, subject)
+            ok = send_alert_email(prefs.email, subject, html)
+            if ok:
+                sent_count += 1
+
+        logger.info("Email notifications complete: %d/%d sent", sent_count, len(alerts))
     except Exception as e:
         logger.error("Email notification error (non-fatal): %s", e)

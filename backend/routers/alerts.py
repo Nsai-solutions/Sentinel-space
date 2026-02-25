@@ -170,3 +170,30 @@ def update_notification_prefs(req: NotificationPrefsRequest, db: Session = Depen
 
     db.commit()
     return {"detail": "Notification preferences saved"}
+
+
+@router.post("/test-email")
+def test_email(db: Session = Depends(get_db)):
+    """Send a test email to verify Resend integration."""
+    from services.email_service import is_configured, send_alert_email, format_alert_email
+
+    if not is_configured():
+        raise HTTPException(status_code=400, detail="Email not configured (RESEND_API_KEY not set)")
+
+    try:
+        prefs = db.query(NotificationPreferences).first()
+    except Exception:
+        prefs = None
+
+    if not prefs or not prefs.email:
+        raise HTTPException(status_code=400, detail="No recipient email configured in notification preferences")
+
+    subject, html = format_alert_email(
+        "This is a test alert from SentinelSpace. If you received this, email notifications are working.",
+        "HIGH",
+        "Test Asset",
+    )
+    ok = send_alert_email(prefs.email, subject, html)
+    if ok:
+        return {"detail": f"Test email sent to {prefs.email}"}
+    raise HTTPException(status_code=500, detail="Failed to send test email — check server logs")
