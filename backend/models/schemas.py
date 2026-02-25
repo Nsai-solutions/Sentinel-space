@@ -72,11 +72,20 @@ class AssetResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AssetScreeningConfig(BaseModel):
+    screening_window_days: Optional[float] = None
+    screening_threshold_km: Optional[float] = None
+    auto_screen: Optional[bool] = None
+
+
 class AssetDetail(AssetResponse):
     tle_line1: str
     tle_line2: str
     hard_body_radius_m: Optional[float] = None
     delta_v_budget_ms: Optional[float] = None
+    screening_window_days: Optional[float] = 7.0
+    screening_threshold_km: Optional[float] = 25.0
+    auto_screen: bool = True
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     altitude_km: Optional[float] = None
@@ -195,6 +204,15 @@ class AlertConfigRequest(BaseModel):
     moderate_threshold: float = 1e-5
     min_distance_km: Optional[float] = None
     enabled: bool = True
+
+
+class NotificationPrefsRequest(BaseModel):
+    email: Optional[str] = None
+    email_enabled: Optional[bool] = None
+    notify_critical: Optional[bool] = None
+    notify_high: Optional[bool] = None
+    notify_moderate: Optional[bool] = None
+    notify_low: Optional[bool] = None
 
 
 # --- Orbit / Propagation ---

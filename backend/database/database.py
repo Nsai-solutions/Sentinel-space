@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 # On Vercel, use /tmp (ephemeral writable dir). Locally use backend/data/.
@@ -52,3 +52,25 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     from database import models  # noqa: F401 — ensure ORM models are registered
     Base.metadata.create_all(bind=engine)
+    _migrate_columns()
+
+
+def _migrate_columns():
+    """Add new columns to existing tables (SQLite ALTER TABLE).
+
+    SQLAlchemy create_all() creates new tables but won't add columns to
+    existing ones.  We use ALTER TABLE wrapped in try/except — SQLite
+    raises an error if the column already exists, which we silently ignore.
+    """
+    migrations = [
+        "ALTER TABLE assets ADD COLUMN screening_window_days FLOAT DEFAULT 7.0",
+        "ALTER TABLE assets ADD COLUMN screening_threshold_km FLOAT DEFAULT 25.0",
+        "ALTER TABLE assets ADD COLUMN auto_screen BOOLEAN DEFAULT 1",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists

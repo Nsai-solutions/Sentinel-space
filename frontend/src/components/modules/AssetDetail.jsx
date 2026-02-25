@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import DataReadout from '../ui/DataReadout';
 import useAssetStore from '../../stores/assetStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useUIStore from '../../stores/uiStore';
+import { updateAssetConfig } from '../../api/client';
 import './AssetDetail.css';
 
 export default function AssetDetail({ data }) {
@@ -10,7 +12,28 @@ export default function AssetDetail({ data }) {
   const screening = useConjunctionStore((s) => s.screening);
   const setRightPanelMode = useUIStore((s) => s.setRightPanelMode);
 
+  const [autoScreen, setAutoScreen] = useState(true);
+  const [windowDays, setWindowDays] = useState(7);
+  const [thresholdKm, setThresholdKm] = useState(25);
+
+  useEffect(() => {
+    if (data) {
+      setAutoScreen(data.auto_screen ?? true);
+      setWindowDays(data.screening_window_days ?? 7);
+      setThresholdKm(data.screening_threshold_km ?? 25);
+    }
+  }, [data?.id]);
+
   if (!data) return null;
+
+  const handleConfigChange = async (field, value, setter) => {
+    setter(value);
+    try {
+      await updateAssetConfig(data.id, { [field]: value });
+    } catch (err) {
+      console.error('Failed to update screening config:', err);
+    }
+  };
 
   const oe = data.orbital_elements || {};
   const tleAge = data.tle_epoch
@@ -61,6 +84,41 @@ export default function AssetDetail({ data }) {
           unit="hrs"
           threat={tleAgeWarn ? 'HIGH' : undefined}
         />
+      </div>
+
+      <div className="section-title">SCREENING SETTINGS</div>
+      <div className="screening-config">
+        <label className="config-row">
+          <span className="config-label">Auto-Screen</span>
+          <input
+            type="checkbox"
+            checked={autoScreen}
+            onChange={(e) => handleConfigChange('auto_screen', e.target.checked, setAutoScreen)}
+          />
+        </label>
+        <label className="config-row">
+          <span className="config-label">Window</span>
+          <select
+            value={windowDays}
+            onChange={(e) => handleConfigChange('screening_window_days', parseFloat(e.target.value), setWindowDays)}
+          >
+            <option value={3}>3 days</option>
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+          </select>
+        </label>
+        <label className="config-row">
+          <span className="config-label">Threshold</span>
+          <select
+            value={thresholdKm}
+            onChange={(e) => handleConfigChange('screening_threshold_km', parseFloat(e.target.value), setThresholdKm)}
+          >
+            <option value={5}>5 km</option>
+            <option value={10}>10 km</option>
+            <option value={25}>25 km</option>
+            <option value={50}>50 km</option>
+          </select>
+        </label>
       </div>
 
       {data.active_conjunctions > 0 && (

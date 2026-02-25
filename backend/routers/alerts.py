@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from database.models import Alert, AlertConfig, AlertStatus, ThreatLevel
-from models.schemas import AlertConfigRequest, AlertResponse
+from database.models import Alert, AlertConfig, AlertStatus, NotificationPreferences, ThreatLevel
+from models.schemas import AlertConfigRequest, AlertResponse, NotificationPrefsRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -106,3 +106,51 @@ def configure_alerts(config: AlertConfigRequest, db: Session = Depends(get_db)):
 
     db.commit()
     return {"detail": "Alert configuration saved"}
+
+
+@router.get("/notifications")
+def get_notification_prefs(db: Session = Depends(get_db)):
+    """Get email notification preferences."""
+    prefs = db.query(NotificationPreferences).first()
+    if not prefs:
+        return {
+            "email": None,
+            "email_enabled": False,
+            "notify_critical": True,
+            "notify_high": True,
+            "notify_moderate": False,
+            "notify_low": False,
+        }
+    return {
+        "email": prefs.email,
+        "email_enabled": prefs.email_enabled,
+        "notify_critical": prefs.notify_critical,
+        "notify_high": prefs.notify_high,
+        "notify_moderate": prefs.notify_moderate,
+        "notify_low": prefs.notify_low,
+    }
+
+
+@router.put("/notifications")
+def update_notification_prefs(req: NotificationPrefsRequest, db: Session = Depends(get_db)):
+    """Update email notification preferences."""
+    prefs = db.query(NotificationPreferences).first()
+    if not prefs:
+        prefs = NotificationPreferences()
+        db.add(prefs)
+
+    if req.email is not None:
+        prefs.email = req.email
+    if req.email_enabled is not None:
+        prefs.email_enabled = req.email_enabled
+    if req.notify_critical is not None:
+        prefs.notify_critical = req.notify_critical
+    if req.notify_high is not None:
+        prefs.notify_high = req.notify_high
+    if req.notify_moderate is not None:
+        prefs.notify_moderate = req.notify_moderate
+    if req.notify_low is not None:
+        prefs.notify_low = req.notify_low
+
+    db.commit()
+    return {"detail": "Notification preferences saved"}

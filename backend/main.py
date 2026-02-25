@@ -19,7 +19,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from database.database import init_db
-from routers import assets, tle, screening, conjunctions, maneuvers, environment, alerts, reports, orbit
+from routers import assets, tle, screening, conjunctions, maneuvers, environment, alerts, reports, orbit, api_keys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,7 +33,7 @@ _refresh_shutdown = threading.Event()
 
 
 def _background_refresh_loop(interval_hours: float):
-    """Background thread that periodically refreshes the TLE catalog."""
+    """Background thread that periodically refreshes the TLE catalog and auto-screens assets."""
     from services.tle_catalog import catalog_service
 
     interval_seconds = interval_hours * 3600
@@ -53,8 +53,78 @@ def _background_refresh_loop(interval_hours: float):
             )
         except Exception as e:
             logger.error("Background TLE refresh failed: %s", e)
+            continue  # Skip screening if refresh failed
+
+        # Auto-screen all eligible assets after catalog refresh
+        screening_enabled = os.environ.get("SCREENING_ENABLED", "true").lower() == "true"
+        if not screening_enabled:
+            logger.info("Auto-screening disabled via SCREENING_ENABLED env var")
+            continue
+
+        try:
+            _auto_screen_assets()
+        except Exception as e:
+            logger.error("Background auto-screening failed: %s", e)
 
     logger.info("Background TLE refresh thread stopped")
+
+
+def _auto_screen_assets():
+    """Screen all assets with auto_screen=True sequentially."""
+    from database.database import SessionLocal
+    from database.models import Asset
+    from services.screening_service import run_screening_for_asset
+
+    db = SessionLocal()
+    try:
+        assets = db.query(Asset).filter(
+            Asset.auto_screen == True  # noqa: E712
+        ).all()
+
+        if not assets:
+            logger.info("No assets with auto_screen enabled — skipping")
+            return
+
+        total_conjunctions = 0
+        logger.info("Auto-screening %d assets...", len(assets))
+
+        for asset in assets:
+            if _refresh_shutdown.is_set():
+                logger.info("Shutdown requested, aborting auto-screening")
+                break
+
+            window = asset.screening_window_days or 7.0
+            threshold = asset.screening_threshold_km or 25.0
+            logger.info(
+                "Auto-screening asset: %s (NORAD %d), window=%.1fd, threshold=%.1fkm",
+                asset.name, asset.norad_id, window, threshold,
+            )
+
+            try:
+                run_screening_for_asset(
+                    db=db,
+                    asset_id=asset.id,
+                    time_window_days=window,
+                    distance_threshold_km=threshold,
+                )
+                # Count conjunctions from the latest job
+                from database.models import ScreeningJob, JobStatus
+                latest_job = db.query(ScreeningJob).filter(
+                    ScreeningJob.asset_id == asset.id,
+                    ScreeningJob.status == JobStatus.COMPLETED,
+                ).order_by(ScreeningJob.completed_at.desc()).first()
+                if latest_job:
+                    total_conjunctions += latest_job.conjunctions_found or 0
+            except Exception as e:
+                logger.error("Auto-screening failed for asset %s (ID %d): %s",
+                             asset.name, asset.id, e)
+
+        logger.info(
+            "Auto-screening complete: %d assets screened, %d total conjunctions found",
+            len(assets), total_conjunctions,
+        )
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -166,6 +236,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Optional API key authentication (only active when API_KEY_REQUIRED=true)
+from middleware.auth import APIKeyMiddleware
+app.add_middleware(APIKeyMiddleware)
+
 # Mount routers
 app.include_router(assets.router, prefix="/api/assets", tags=["Assets"])
 app.include_router(tle.router, prefix="/api/tle", tags=["TLE"])
@@ -176,6 +250,7 @@ app.include_router(environment.router, prefix="/api/environment", tags=["Environ
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(orbit.router, prefix="/api/orbit", tags=["Orbit"])
+app.include_router(api_keys.router, prefix="/api/api-keys", tags=["API Keys"])
 
 
 @app.get("/api/health")

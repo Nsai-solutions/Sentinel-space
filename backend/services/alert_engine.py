@@ -79,6 +79,7 @@ def check_and_generate_alerts(
     if alerts_generated:
         db.commit()
         logger.info("Generated %d alerts for asset %d", len(alerts_generated), asset_id)
+        _send_email_notifications(db, alerts_generated)
 
     return alerts_generated
 
@@ -141,3 +142,37 @@ def _classify(pc: float) -> str:
 
 def _threat_rank(level: str) -> int:
     return {"LOW": 0, "MODERATE": 1, "HIGH": 2, "CRITICAL": 3}.get(level, 0)
+
+
+def _send_email_notifications(db: Session, alerts: list[Alert]):
+    """Send email notifications for new alerts.  Never raises."""
+    try:
+        from database.models import NotificationPreferences, Asset
+        from services.email_service import is_configured, send_alert_email, format_alert_email
+
+        if not is_configured():
+            return
+
+        prefs = db.query(NotificationPreferences).first()
+        if not prefs or not prefs.email_enabled or not prefs.email:
+            return
+
+        for alert in alerts:
+            level = alert.threat_level.value if alert.threat_level else "LOW"
+
+            should_send = (
+                (level == "CRITICAL" and prefs.notify_critical) or
+                (level == "HIGH" and prefs.notify_high) or
+                (level == "MODERATE" and prefs.notify_moderate) or
+                (level == "LOW" and prefs.notify_low)
+            )
+            if not should_send:
+                continue
+
+            asset = db.query(Asset).filter(Asset.id == alert.asset_id).first()
+            asset_name = asset.name if asset else ""
+
+            subject, html = format_alert_email(alert.message, level, asset_name)
+            send_alert_email(prefs.email, subject, html)
+    except Exception as e:
+        logger.error("Email notification error (non-fatal): %s", e)

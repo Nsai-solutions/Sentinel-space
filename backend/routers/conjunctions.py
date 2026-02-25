@@ -185,15 +185,17 @@ def get_conjunction_detail(event_id: int, db: Session = Depends(get_db)):
 @router.get("/{event_id}/history")
 def conjunction_history(event_id: int, db: Session = Depends(get_db)):
     """Get screening history for a conjunction pair."""
+    from database.models import ConjunctionHistory
+
     event = db.query(ConjunctionEvent).filter(ConjunctionEvent.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # Find all events with same primary/secondary pair
-    history = db.query(ConjunctionEvent).filter(
-        ConjunctionEvent.primary_asset_id == event.primary_asset_id,
-        ConjunctionEvent.secondary_norad_id == event.secondary_norad_id,
-    ).order_by(ConjunctionEvent.created_at.asc()).all()
+    # Query the dedicated history table for this primary/secondary pair
+    history = db.query(ConjunctionHistory).filter(
+        ConjunctionHistory.primary_asset_id == event.primary_asset_id,
+        ConjunctionHistory.secondary_norad_id == event.secondary_norad_id,
+    ).order_by(ConjunctionHistory.screened_at.asc()).all()
 
     return [
         {
@@ -202,7 +204,7 @@ def conjunction_history(event_id: int, db: Session = Depends(get_db)):
             "miss_distance_m": h.miss_distance_m,
             "collision_probability": h.collision_probability,
             "threat_level": h.threat_level.value if h.threat_level else "LOW",
-            "screened_at": h.created_at.isoformat() if h.created_at else None,
+            "screened_at": h.screened_at.isoformat() if h.screened_at else None,
         }
         for h in history
     ]
@@ -277,3 +279,27 @@ def acknowledge_conjunction(event_id: int, db: Session = Depends(get_db)):
     event.status = EventStatus.ACKNOWLEDGED
     db.commit()
     return {"detail": "Event acknowledged"}
+
+
+@router.get("/{event_id}/cdm")
+def download_cdm(event_id: int, db: Session = Depends(get_db)):
+    """Download Conjunction Data Message (CDM) for an event."""
+    from fastapi.responses import Response as FastAPIResponse
+    from services.cdm_generator import generate_cdm
+
+    event = db.query(ConjunctionEvent).filter(ConjunctionEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Conjunction event not found")
+
+    asset = db.query(Asset).filter(Asset.id == event.primary_asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Associated asset not found")
+
+    cdm_text = generate_cdm(event, asset)
+    filename = f"CDM_{event.id}_{event.secondary_norad_id}.cdm"
+
+    return FastAPIResponse(
+        content=cdm_text,
+        media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

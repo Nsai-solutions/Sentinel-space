@@ -15,6 +15,7 @@ export const addAsset = (data) => api.post('/assets', data);
 export const getAsset = (id) => api.get(`/assets/${id}`);
 export const deleteAsset = (id) => api.delete(`/assets/${id}`);
 export const updateAssetProperties = (id, data) => api.put(`/assets/${id}/properties`, data);
+export const updateAssetConfig = (id, data) => api.patch(`/assets/${id}`, data);
 
 // TLE
 export const fetchTLE = (noradId) => api.get(`/tle/fetch/${noradId}`);
@@ -34,6 +35,7 @@ export const getConjunction = (id) => api.get(`/conjunctions/${id}`);
 export const getConjunctionHistory = (id) => api.get(`/conjunctions/${id}/history`);
 export const runMonteCarlo = (id, n) => api.post(`/conjunctions/${id}/monte-carlo`, null, { params: { n_samples: n } });
 export const acknowledgeConjunction = (id) => api.post(`/conjunctions/${id}/acknowledge`);
+export const downloadCDM = (id) => api.get(`/conjunctions/${id}/cdm`, { responseType: 'blob' });
 export const getConjunctionSummary = () => api.get('/conjunctions/summary');
 export const clearConjunctions = (assetId) =>
   api.delete('/conjunctions', { params: assetId ? { asset_id: assetId } : {} });
@@ -52,6 +54,8 @@ export const fetchAlerts = (params) => api.get('/alerts', { params });
 export const getUnreadCount = () => api.get('/alerts/unread-count');
 export const acknowledgeAlert = (id) => api.put(`/alerts/${id}/acknowledge`);
 export const configureAlerts = (data) => api.post('/alerts/configure', data);
+export const getNotificationPrefs = () => api.get('/alerts/notifications');
+export const updateNotificationPrefs = (data) => api.put('/alerts/notifications', data);
 
 // Orbit
 export const propagateSatellite = (noradId, params) => api.get(`/orbit/${noradId}/propagate`, { params });
@@ -62,5 +66,10 @@ export const propagateBatch = (noradIds) => api.post('/orbit/propagate-batch', n
 // Reports
 export const generateReport = (data) => api.post('/reports/conjunction-summary', data, { responseType: 'blob' });
 export const exportConjunctions = (params) => api.get('/reports/export/conjunctions', { params, responseType: 'blob' });
+
+// API Keys
+export const listAPIKeys = () => api.get('/api-keys');
+export const createAPIKey = (data) => api.post('/api-keys', data);
+export const revokeAPIKey = (id) => api.delete(`/api-keys/${id}`);
 
 export default api;

@@ -14,7 +14,7 @@ from core.tle_parser import TLEData, parse_tle_text
 from core.orbital_mechanics import classify_orbit
 from database.database import get_db
 from database.models import Asset, ConjunctionEvent, ThreatLevel
-from models.schemas import AssetCreate, AssetDetail, AssetProperties, AssetResponse
+from models.schemas import AssetCreate, AssetDetail, AssetProperties, AssetResponse, AssetScreeningConfig
 from services.tle_catalog import catalog_service
 from utils.time_utils import tle_epoch_to_datetime
 
@@ -153,6 +153,25 @@ def update_properties(asset_id: int, props: AssetProperties, db: Session = Depen
     return _asset_to_response(asset, db)
 
 
+@router.patch("/{asset_id}", response_model=AssetResponse)
+def update_asset_config(asset_id: int, config: AssetScreeningConfig, db: Session = Depends(get_db)):
+    """Update asset screening configuration."""
+    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if config.screening_window_days is not None:
+        asset.screening_window_days = config.screening_window_days
+    if config.screening_threshold_km is not None:
+        asset.screening_threshold_km = config.screening_threshold_km
+    if config.auto_screen is not None:
+        asset.auto_screen = config.auto_screen
+
+    db.commit()
+    db.refresh(asset)
+    return _asset_to_response(asset, db)
+
+
 def _asset_to_response(asset: Asset, db: Session) -> AssetResponse:
     """Convert DB asset to response schema with threat summary."""
     # Count active conjunctions by threat level
@@ -191,6 +210,9 @@ def _asset_to_detail(asset: Asset, db: Session) -> AssetDetail:
         tle_line2=asset.tle_line2,
         hard_body_radius_m=asset.hard_body_radius_m,
         delta_v_budget_ms=asset.delta_v_budget_ms,
+        screening_window_days=asset.screening_window_days or 7.0,
+        screening_threshold_km=asset.screening_threshold_km or 25.0,
+        auto_screen=asset.auto_screen if asset.auto_screen is not None else True,
         created_at=asset.created_at,
         updated_at=asset.updated_at,
     )

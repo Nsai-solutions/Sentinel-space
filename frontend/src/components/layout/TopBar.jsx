@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useAlertStore from '../../stores/alertStore';
+import NotificationSettings from '../modules/NotificationSettings';
+import APIKeyManager from '../modules/APIKeyManager';
 import './TopBar.css';
 
 const THREAT_COLORS = {
@@ -15,11 +17,26 @@ export default function TopBar() {
   const screening = useConjunctionStore((s) => s.screening);
   const unreadCount = useAlertStore((s) => s.unreadCount);
   const [time, setTime] = useState(new Date());
+  const [showNotifSettings, setShowNotifSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState('notifications');
+  const settingsRef = useRef(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleClick = (e) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showSettings]);
 
   const levels = summary.by_level || {};
 
@@ -62,13 +79,59 @@ export default function TopBar() {
           {time.toISOString().slice(0, 19).replace('T', ' ')} UTC
         </div>
 
-        <button className="alert-bell" title="Alerts">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          {unreadCount > 0 && <span className="alert-badge">{unreadCount}</span>}
-        </button>
+        <div className="alert-bell-wrapper" style={{ position: 'relative' }}>
+          <button
+            className="alert-bell"
+            title="Alerts & Notifications"
+            onClick={() => setShowNotifSettings(!showNotifSettings)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {unreadCount > 0 && <span className="alert-badge">{unreadCount}</span>}
+          </button>
+          {showNotifSettings && (
+            <NotificationSettings onClose={() => setShowNotifSettings(false)} />
+          )}
+        </div>
+
+        <div className="settings-wrapper" ref={settingsRef}>
+          <button
+            className="alert-bell"
+            title="Settings"
+            onClick={() => { setShowSettings(!showSettings); setShowNotifSettings(false); }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          {showSettings && (
+            <div className="settings-dropdown">
+              <div className="settings-tabs">
+                <button
+                  className={`settings-tab ${settingsTab === 'notifications' ? 'active' : ''}`}
+                  onClick={() => setSettingsTab('notifications')}
+                >
+                  Notifications
+                </button>
+                <button
+                  className={`settings-tab ${settingsTab === 'apikeys' ? 'active' : ''}`}
+                  onClick={() => setSettingsTab('apikeys')}
+                >
+                  API Keys
+                </button>
+              </div>
+              <div className="settings-content">
+                {settingsTab === 'notifications' && (
+                  <NotificationSettings onClose={() => setShowSettings(false)} embedded />
+                )}
+                {settingsTab === 'apikeys' && <APIKeyManager />}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

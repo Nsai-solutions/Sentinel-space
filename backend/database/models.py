@@ -68,6 +68,11 @@ class Asset(Base):
     maneuverable = Column(Boolean, default=False)
     delta_v_budget_ms = Column(Float, nullable=True)
 
+    # Screening configuration
+    screening_window_days = Column(Float, nullable=True, default=7.0)
+    screening_threshold_km = Column(Float, nullable=True, default=25.0)
+    auto_screen = Column(Boolean, default=True)
+
     # Metadata
     orbit_type = Column(String(16), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -179,6 +184,64 @@ class Alert(Base):
     acknowledged_at = Column(DateTime, nullable=True)
 
     asset = relationship("Asset", back_populates="alerts")
+
+
+class ConjunctionHistory(Base):
+    """Snapshot of each conjunction at each screening run.
+
+    While ConjunctionEvent stores the current/latest state, this table
+    accumulates all observations so operators can see trends over time.
+    """
+    __tablename__ = "conjunction_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    primary_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False, index=True)
+    secondary_norad_id = Column(Integer, nullable=False, index=True)
+    secondary_name = Column(String(128), nullable=True)
+
+    # Snapshot of conjunction state at this screening
+    tca = Column(DateTime, nullable=False)
+    miss_distance_m = Column(Float, nullable=False)
+    radial_m = Column(Float, nullable=True)
+    in_track_m = Column(Float, nullable=True)
+    cross_track_m = Column(Float, nullable=True)
+    relative_velocity_kms = Column(Float, nullable=True)
+    collision_probability = Column(Float, nullable=True)
+    threat_level = Column(Enum(ThreatLevel), nullable=True)
+
+    # Metadata
+    screening_job_id = Column(Integer, ForeignKey("screening_jobs.id"), nullable=True)
+    screened_at = Column(DateTime, server_default=func.now())
+
+
+class NotificationPreferences(Base):
+    """Global email notification preferences (single row, no user auth yet)."""
+    __tablename__ = "notification_preferences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), nullable=True)
+    email_enabled = Column(Boolean, default=False)
+
+    notify_critical = Column(Boolean, default=True)
+    notify_high = Column(Boolean, default=True)
+    notify_moderate = Column(Boolean, default=False)
+    notify_low = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class APIKey(Base):
+    """API key for programmatic access."""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(128), nullable=False)
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)
+    key_prefix = Column(String(8), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    last_used_at = Column(DateTime, nullable=True)
 
 
 class AlertConfig(Base):

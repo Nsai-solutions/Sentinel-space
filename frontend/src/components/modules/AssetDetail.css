@@ -48,6 +48,41 @@
   gap: 8px;
 }
 
+.screening-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.config-label {
+  color: var(--text-secondary);
+}
+
+.config-row select {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: var(--font-data);
+}
+
+.config-row input[type="checkbox"] {
+  accent-color: var(--accent-primary);
+}
+
 .asset-conjunctions-summary {
   display: flex;
   justify-content: space-between;

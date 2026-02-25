@@ -2,7 +2,8 @@ import { useState } from 'react';
 import DataReadout from '../ui/DataReadout';
 import ThreatBadge from '../ui/ThreatBadge';
 import RiskGauge from '../ui/RiskGauge';
-import { computeManeuvers } from '../../api/client';
+import ConjunctionHistoryChart from './ConjunctionHistoryChart';
+import { computeManeuvers, downloadCDM } from '../../api/client';
 import './ConjunctionDetail.css';
 
 export default function ConjunctionDetail({ data }) {
@@ -33,6 +34,22 @@ export default function ConjunctionDetail({ data }) {
       console.error('Maneuver computation failed:', err);
     }
     setComputing(false);
+  };
+
+  const handleDownloadCDM = async () => {
+    try {
+      const res = await downloadCDM(data.id);
+      const blob = new Blob([res.data], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const secNorad = data.secondary?.norad_id || data.secondary_norad_id || 0;
+      a.download = `CDM_${data.id}_${secNorad}.cdm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('CDM download failed:', err);
+    }
   };
 
   // Handle both flat (list endpoint) and nested (detail endpoint) structures
@@ -156,6 +173,9 @@ export default function ConjunctionDetail({ data }) {
         )}
       </div>
 
+      {/* History chart */}
+      <ConjunctionHistoryChart eventId={data.id} />
+
       {/* Miss distance breakdown */}
       <div className="section-title">MISS DISTANCE</div>
       <div className="readout-grid">
@@ -230,6 +250,15 @@ export default function ConjunctionDetail({ data }) {
           {computing ? 'Computing...' : 'Compute Avoidance Options'}
         </button>
       )}
+
+      {/* CDM Export */}
+      <button
+        className="btn-secondary"
+        style={{ width: '100%', marginTop: 8 }}
+        onClick={handleDownloadCDM}
+      >
+        Download CDM
+      </button>
     </div>
   );
 }

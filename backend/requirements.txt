@@ -22,5 +22,8 @@ pydantic>=2.0
 # PDF reports
 reportlab>=4.0
 
+# Email notifications
+resend>=2.0
+
 # Image handling
 Pillow>=10.0
