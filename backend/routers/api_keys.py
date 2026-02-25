@@ -34,9 +34,24 @@ def create_api_key(req: APIKeyCreate, db: Session = Depends(get_db)):
         key_prefix=raw_key[:8],
         is_active=True,
     )
-    db.add(api_key)
-    db.commit()
-    db.refresh(api_key)
+    try:
+        db.add(api_key)
+        db.commit()
+        db.refresh(api_key)
+    except Exception as exc:
+        db.rollback()
+        logger.error("API key insert failed (ensuring table exists): %s", exc)
+        from database.database import _migrate_columns
+        _migrate_columns()
+        api_key = APIKey(
+            name=req.name,
+            key_hash=key_hash,
+            key_prefix=raw_key[:8],
+            is_active=True,
+        )
+        db.add(api_key)
+        db.commit()
+        db.refresh(api_key)
 
     logger.info("API key created: %s (id=%d)", req.name, api_key.id)
 
@@ -52,7 +67,11 @@ def create_api_key(req: APIKeyCreate, db: Session = Depends(get_db)):
 @router.get("")
 def list_api_keys(db: Session = Depends(get_db)):
     """List all API keys (without the actual key values)."""
-    keys = db.query(APIKey).order_by(APIKey.created_at.desc()).all()
+    try:
+        keys = db.query(APIKey).order_by(APIKey.created_at.desc()).all()
+    except Exception as exc:
+        logger.warning("Could not query api_keys: %s", exc)
+        return []
     return [
         {
             "id": k.id,

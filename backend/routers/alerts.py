@@ -108,19 +108,27 @@ def configure_alerts(config: AlertConfigRequest, db: Session = Depends(get_db)):
     return {"detail": "Alert configuration saved"}
 
 
+_NOTIF_DEFAULTS = {
+    "email": None,
+    "email_enabled": False,
+    "notify_critical": True,
+    "notify_high": True,
+    "notify_moderate": False,
+    "notify_low": False,
+}
+
+
 @router.get("/notifications")
 def get_notification_prefs(db: Session = Depends(get_db)):
     """Get email notification preferences."""
-    prefs = db.query(NotificationPreferences).first()
+    try:
+        prefs = db.query(NotificationPreferences).first()
+    except Exception as exc:
+        logger.warning("Could not query notification_preferences: %s", exc)
+        return _NOTIF_DEFAULTS
+
     if not prefs:
-        return {
-            "email": None,
-            "email_enabled": False,
-            "notify_critical": True,
-            "notify_high": True,
-            "notify_moderate": False,
-            "notify_low": False,
-        }
+        return _NOTIF_DEFAULTS
     return {
         "email": prefs.email,
         "email_enabled": prefs.email_enabled,
@@ -134,7 +142,15 @@ def get_notification_prefs(db: Session = Depends(get_db)):
 @router.put("/notifications")
 def update_notification_prefs(req: NotificationPrefsRequest, db: Session = Depends(get_db)):
     """Update email notification preferences."""
-    prefs = db.query(NotificationPreferences).first()
+    try:
+        prefs = db.query(NotificationPreferences).first()
+    except Exception as exc:
+        logger.warning("notification_preferences table missing, creating: %s", exc)
+        db.rollback()
+        from database.database import _migrate_columns
+        _migrate_columns()
+        prefs = None
+
     if not prefs:
         prefs = NotificationPreferences()
         db.add(prefs)
