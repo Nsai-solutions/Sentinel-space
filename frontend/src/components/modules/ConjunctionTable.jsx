@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import useAssetStore from '../../stores/assetStore';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useUIStore from '../../stores/uiStore';
 import ThreatBadge from '../ui/ThreatBadge';
@@ -9,12 +10,21 @@ export default function ConjunctionTable() {
   const selectConjunction = useConjunctionStore((s) => s.selectConjunction);
   const selectedConjunctionId = useConjunctionStore((s) => s.selectedConjunctionId);
   const setRightPanelMode = useUIStore((s) => s.setRightPanelMode);
+  const selectedAssetId = useAssetStore((s) => s.selectedAssetId);
+  const assets = useAssetStore((s) => s.assets);
   const [assetFilter, setAssetFilter] = useState('all');
 
-  // Reset filter when conjunctions change (e.g. after clear + re-screen)
+  // Sync filter with selected asset in left panel
   useEffect(() => {
-    setAssetFilter('all');
-  }, [conjunctions]);
+    if (!selectedAssetId) {
+      setAssetFilter('all');
+      return;
+    }
+    const asset = assets.find((a) => a.id === selectedAssetId);
+    if (asset) {
+      setAssetFilter(asset.name);
+    }
+  }, [selectedAssetId, assets]);
 
   const handleRowClick = (id) => {
     selectConjunction(id);
