@@ -98,7 +98,16 @@ export default function ConjunctionHistoryChart({ eventId }) {
   }, [data]);
 
   if (loading) return null;
-  if (!data || data.length < 2) return null;
+  if (!data) return null;
+
+  if (data.length < 2) {
+    return (
+      <div className="history-observation-note">
+        History: <span className="obs-count">{data.length} observation{data.length !== 1 ? 's' : ''}</span>
+        {data.length === 1 && ' — chart appears after 2+ screening runs'}
+      </div>
+    );
+  }
 
   return (
     <div className="conjunction-history-chart">

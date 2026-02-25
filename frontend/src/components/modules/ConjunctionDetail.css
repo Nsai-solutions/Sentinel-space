@@ -192,3 +192,29 @@
   padding: 10px;
 }
 .btn-primary:hover { filter: brightness(1.1); }
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.history-observation-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 6px 0;
+}
+.history-observation-note .obs-count {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
