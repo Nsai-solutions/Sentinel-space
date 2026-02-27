@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import useConjunctionStore from '../../stores/conjunctionStore';
 import useAlertStore from '../../stores/alertStore';
+import AlertFeed from '../modules/AlertFeed';
 import NotificationSettings from '../modules/NotificationSettings';
 import APIKeyManager from '../modules/APIKeyManager';
 import './TopBar.css';
@@ -17,7 +18,7 @@ export default function TopBar() {
   const screening = useConjunctionStore((s) => s.screening);
   const unreadCount = useAlertStore((s) => s.unreadCount);
   const [time, setTime] = useState(new Date());
-  const [showNotifSettings, setShowNotifSettings] = useState(false);
+  const [showAlertFeed, setShowAlertFeed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState('notifications');
   const settingsRef = useRef(null);
@@ -82,8 +83,8 @@ export default function TopBar() {
         <div className="alert-bell-wrapper" style={{ position: 'relative' }}>
           <button
             className="alert-bell"
-            title="Alerts & Notifications"
-            onClick={() => setShowNotifSettings(!showNotifSettings)}
+            title="Alerts"
+            onClick={() => { setShowAlertFeed(!showAlertFeed); setShowSettings(false); }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -91,8 +92,8 @@ export default function TopBar() {
             </svg>
             {unreadCount > 0 && <span className="alert-badge">{unreadCount}</span>}
           </button>
-          {showNotifSettings && (
-            <NotificationSettings onClose={() => setShowNotifSettings(false)} />
+          {showAlertFeed && (
+            <AlertFeed onClose={() => setShowAlertFeed(false)} />
           )}
         </div>
 
@@ -100,7 +101,7 @@ export default function TopBar() {
           <button
             className="alert-bell"
             title="Settings"
-            onClick={() => { setShowSettings(!showSettings); setShowNotifSettings(false); }}
+            onClick={() => { setShowSettings(!showSettings); setShowAlertFeed(false); }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" />

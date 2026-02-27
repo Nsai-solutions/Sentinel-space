@@ -1,0 +1,129 @@
+.alert-feed-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 360px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.alert-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.alert-feed-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.alert-feed-mark-read {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: var(--accent-primary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.alert-feed-mark-read:hover {
+  background: rgba(68, 138, 255, 0.1);
+}
+
+.alert-feed-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.alert-feed-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.alert-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.alert-feed-item:last-child {
+  border-bottom: none;
+}
+.alert-feed-item:hover {
+  background: var(--bg-tertiary);
+}
+.alert-feed-item.unread {
+  background: rgba(68, 138, 255, 0.04);
+}
+.alert-feed-item.unread:hover {
+  background: rgba(68, 138, 255, 0.08);
+}
+
+.alert-feed-pill {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.alert-feed-pill.critical {
+  background: var(--threat-critical-bg);
+  color: var(--threat-critical);
+}
+.alert-feed-pill.high {
+  background: var(--threat-high-bg);
+  color: var(--threat-high);
+}
+.alert-feed-pill.moderate {
+  background: var(--threat-moderate-bg);
+  color: var(--threat-moderate);
+}
+.alert-feed-pill.low {
+  background: var(--threat-low-bg);
+  color: var(--threat-low);
+}
+
+.alert-feed-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.alert-feed-miss {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.alert-feed-time {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}

@@ -75,6 +75,17 @@ def acknowledge_alert(alert_id: int, db: Session = Depends(get_db)):
     return {"detail": "Alert acknowledged"}
 
 
+@router.put("/mark-all-read")
+def mark_all_read(db: Session = Depends(get_db)):
+    """Acknowledge all NEW alerts."""
+    now = datetime.utcnow()
+    count = db.query(Alert).filter(Alert.status == AlertStatus.NEW).update(
+        {Alert.status: AlertStatus.ACKNOWLEDGED, Alert.acknowledged_at: now}
+    )
+    db.commit()
+    return {"acknowledged": count}
+
+
 @router.post("/configure")
 def configure_alerts(config: AlertConfigRequest, db: Session = Depends(get_db)):
     """Set alert thresholds (global or per-asset)."""

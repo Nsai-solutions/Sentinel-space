@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { fetchAlerts, getUnreadCount, acknowledgeAlert } from '../api/client';
+import { fetchAlerts, getUnreadCount, acknowledgeAlert, markAllAlertsRead } from '../api/client';
 
 const useAlertStore = create((set) => ({
   alerts: [],
@@ -36,6 +36,18 @@ const useAlertStore = create((set) => ({
       }));
     } catch (err) {
       throw err;
+    }
+  },
+
+  markAllRead: async () => {
+    try {
+      await markAllAlertsRead();
+      set((state) => ({
+        alerts: state.alerts.map((a) => ({ ...a, status: 'ACKNOWLEDGED' })),
+        unreadCount: 0,
+      }));
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
     }
   },
 }));

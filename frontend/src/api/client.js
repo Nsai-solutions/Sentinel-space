@@ -53,6 +53,7 @@ export const getDebrisHotspots = () => api.get('/environment/hotspots');
 export const fetchAlerts = (params) => api.get('/alerts', { params });
 export const getUnreadCount = () => api.get('/alerts/unread-count');
 export const acknowledgeAlert = (id) => api.put(`/alerts/${id}/acknowledge`);
+export const markAllAlertsRead = () => api.put('/alerts/mark-all-read');
 export const configureAlerts = (data) => api.post('/alerts/configure', data);
 export const getNotificationPrefs = () => api.get('/alerts/notifications');
 export const updateNotificationPrefs = (data) => api.put('/alerts/notifications', data);
